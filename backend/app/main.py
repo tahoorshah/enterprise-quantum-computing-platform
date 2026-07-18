@@ -10,6 +10,7 @@ to prove the container, database, and redis are all wired correctly.
 from fastapi import FastAPI
 from datetime import datetime
 from app.quantum.router import router as quantum_router
+from app.algorithms.router import router as algorithms_router
 app = FastAPI(
     title="QFT Bank Quantum Computing Platform",
     description="Enterprise Quantum Computing Platform - EduQual L6 Capstone (ANPP-OP)",
@@ -31,7 +32,7 @@ def health_check():
     """Basic liveness check. Extend later to also ping Postgres/Redis."""
     return {"status": "healthy"}
 app.include_router(quantum_router, prefix="/api/quantum", tags=["Quantum Circuits"])
-
+app.include_router(algorithms_router, prefix="/api/algorithms", tags=["Quantum Algorithms"])
 # Future module routers will be included like this, one at a time:
 # from app.quantum.router import router as quantum_router
 # app.include_router(quantum_router, prefix="/api/quantum", tags=["Quantum Circuits"])
