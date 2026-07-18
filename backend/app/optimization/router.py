@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException
 from app.optimization.schemas import PortfolioOptimizationRequest, PortfolioOptimizationResult
 from app.optimization.qaoa_portfolio import run_portfolio_optimization
 from app.optimization import history
+from app.dashboard import metrics
 
 router = APIRouter()
 
@@ -21,6 +22,7 @@ router = APIRouter()
 @router.post("/portfolio", response_model=PortfolioOptimizationResult)
 def optimize_portfolio(request: PortfolioOptimizationRequest):
     if request.budget >= request.num_assets:
+        metrics.record_attempt("portfolio_optimization", success=False)
         raise HTTPException(
             status_code=422,
             detail=f"budget ({request.budget}) must be less than num_assets ({request.num_assets})"
@@ -38,10 +40,13 @@ def optimize_portfolio(request: PortfolioOptimizationRequest):
             seed=request.seed,
         )
     except ValueError as e:
+        metrics.record_attempt("portfolio_optimization", success=False)
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
+        metrics.record_attempt("portfolio_optimization", success=False)
         raise HTTPException(status_code=500, detail=f"Portfolio optimization failed: {e}")
 
+    metrics.record_attempt("portfolio_optimization", success=True)
     result = PortfolioOptimizationResult(
         execution_id=str(uuid.uuid4()),
         timestamp=datetime.now(timezone.utc).isoformat(),

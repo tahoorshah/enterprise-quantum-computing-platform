@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException
 from app.quantum.schemas import CircuitRequest, CircuitResult, HistorySummary, SUPPORTED_GATES
 from app.quantum.circuit_builder import execute_circuit_request, InvalidCircuitError
 from app.quantum import history
+from app.dashboard import metrics
 
 router = APIRouter()
 
@@ -27,12 +28,13 @@ def execute_circuit(request: CircuitRequest):
     try:
         result = execute_circuit_request(request)
     except InvalidCircuitError as e:
-        # Client sent something invalid (bad gate name, wrong qubit count, etc.)
+        metrics.record_attempt("quantum_circuits", success=False)
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
-        # Anything unexpected from Qiskit itself
+        metrics.record_attempt("quantum_circuits", success=False)
         raise HTTPException(status_code=500, detail=f"Circuit execution failed: {e}")
 
+    metrics.record_attempt("quantum_circuits", success=True)
     history.save_result(result)
     return result
 

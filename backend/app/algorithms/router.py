@@ -19,6 +19,7 @@ from app.algorithms.qft import demonstrate_qft
 from app.algorithms.qaoa import run_qaoa_maxcut
 from app.algorithms.vqe import run_vqe
 from app.algorithms import history
+from app.dashboard import metrics
 
 router = APIRouter()
 
@@ -39,9 +40,12 @@ def grover_search(request: GroverRequest):
     try:
         result_data = run_grover_search(request.num_qubits, request.marked_state, request.shots)
     except ValueError as e:
+        metrics.record_attempt("algorithms", success=False)
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
+        metrics.record_attempt("algorithms", success=False)
         raise HTTPException(status_code=500, detail=f"Grover execution failed: {e}")
+    metrics.record_attempt("algorithms", success=True)
     return _wrap_and_save("grover", result_data)
 
 
@@ -50,9 +54,12 @@ def qft_demo(request: QFTRequest):
     try:
         result_data = demonstrate_qft(request.num_qubits, request.input_state, request.shots)
     except ValueError as e:
+        metrics.record_attempt("algorithms", success=False)
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
+        metrics.record_attempt("algorithms", success=False)
         raise HTTPException(status_code=500, detail=f"QFT execution failed: {e}")
+    metrics.record_attempt("algorithms", success=True)
     return _wrap_and_save("qft", result_data)
 
 
@@ -65,9 +72,12 @@ def qaoa_maxcut(request: QAOARequest):
             shots=request.shots, max_iterations=request.max_iterations
         )
     except ValueError as e:
+        metrics.record_attempt("algorithms", success=False)
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
+        metrics.record_attempt("algorithms", success=False)
         raise HTTPException(status_code=500, detail=f"QAOA execution failed: {e}")
+    metrics.record_attempt("algorithms", success=True)
     return _wrap_and_save("qaoa", result_data)
 
 
@@ -76,7 +86,9 @@ def vqe_ground_state(request: VQERequest):
     try:
         result_data = run_vqe(request.num_qubits, request.max_iterations)
     except Exception as e:
+        metrics.record_attempt("algorithms", success=False)
         raise HTTPException(status_code=500, detail=f"VQE execution failed: {e}")
+    metrics.record_attempt("algorithms", success=True)
     return _wrap_and_save("vqe", result_data)
 
 
