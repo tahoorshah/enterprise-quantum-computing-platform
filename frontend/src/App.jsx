@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { api } from "./api";
 import CircuitDesigner from "./components/CircuitDesigner";
+import Algorithms from "./components/Algorithms";
 import "./App.css";
 
 // The five module screens. For now only Circuit Designer is built;
@@ -39,7 +40,7 @@ export default function App() {
       case "circuit":
         return <CircuitDesigner />;
       case "algorithms":
-        return <Placeholder name="Quantum Algorithms" />;
+        return <Algorithms />;
       case "portfolio":
         return <Placeholder name="Portfolio Optimization" />;
       case "dashboard":
