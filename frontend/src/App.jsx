@@ -3,6 +3,7 @@ import { api } from "./api";
 import CircuitDesigner from "./components/CircuitDesigner";
 import Algorithms from "./components/Algorithms";
 import Portfolio from "./components/Portfolio";
+import Dashboard from "./components/Dashboard";
 import "./App.css";
 
 // The five module screens. For now only Circuit Designer is built;
@@ -45,7 +46,7 @@ export default function App() {
       case "portfolio":
         return <Portfolio />;
       case "dashboard":
-        return <Placeholder name="Executive Dashboard" />;
+        return <Dashboard />;
       case "pqc":
         return <Placeholder name="PQC Readiness" />;
       default:

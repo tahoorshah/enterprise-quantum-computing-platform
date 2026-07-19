@@ -405,3 +405,57 @@ button {
   border: 1px solid #ffb43c;
   color: #ffcd80;
 }
+
+/* ---- Dashboard module (Module 4) ---- */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin: 1.2rem 0;
+}
+@media (max-width: 800px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.kpi-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.2rem;
+  text-align: center;
+}
+.kpi-value {
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.kpi-label {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 0.4rem;
+}
+
+.module-counts {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.module-count-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem 1rem;
+}
+.module-count-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.module-count-label {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  text-transform: capitalize;
+  margin-top: 0.2rem;
+}
