@@ -69,7 +69,7 @@ export default function CircuitDesigner() {
     <div>
       <h2>Quantum Circuit Designer</h2>
       <p className="subtitle">
-        Build a circuit gate-by-gate and execute it on the quantum simulator.
+        Design a quantum circuit gate-by-gate and execute it on the simulator.
       </p>
 
       <div className="card">

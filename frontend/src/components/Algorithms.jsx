@@ -83,7 +83,7 @@ export default function Algorithms() {
     <div>
       <h2>Quantum Algorithms</h2>
       <p className="subtitle">
-        Demonstrate Grover's search, QFT, QAOA, and VQE on the simulator.
+        Run and compare foundational quantum algorithms against classical approaches.
       </p>
 
       <div className="tab-row">

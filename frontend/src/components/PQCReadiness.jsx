@@ -19,7 +19,7 @@ export default function PQCReadiness() {
     <div>
       <h2>Post-Quantum Cryptography Readiness</h2>
       <p className="subtitle">
-        Assess quantum threats to current cryptography and plan migration to
+        Evaluate quantum threats to current encryption and plan the migration to post-quantum standards.
         NIST post-quantum standards.
       </p>
 

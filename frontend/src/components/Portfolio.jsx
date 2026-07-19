@@ -37,7 +37,7 @@ export default function Portfolio() {
     <div>
       <h2>Financial Portfolio Optimization</h2>
       <p className="subtitle">
-        Select the best assets using classical brute-force vs quantum QAOA,
+        Optimize asset selection on simulated market data, quantum versus classical.
         on simulated market data.
       </p>
 
