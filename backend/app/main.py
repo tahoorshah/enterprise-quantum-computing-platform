@@ -16,12 +16,21 @@ from app.dashboard.router import router as dashboard_router
 from app.pqc.router import router as pqc_router
 from app.database.connection import init_db
 from app.database import persistence
+from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(
     title="QFT Bank Quantum Computing Platform",
     description="Enterprise Quantum Computing Platform - EduQual L6 Capstone (ANPP-OP)",
     version="0.1.0",
 )
 init_db()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # Vite dev server
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def root():
