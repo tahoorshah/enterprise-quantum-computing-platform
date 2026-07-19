@@ -17,6 +17,7 @@ from app.pqc.router import router as pqc_router
 from app.database.connection import init_db
 from app.database import persistence
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 app = FastAPI(
     title="QFT Bank Quantum Computing Platform",
     description="Enterprise Quantum Computing Platform - EduQual L6 Capstone (ANPP-OP)",
@@ -24,6 +25,7 @@ app = FastAPI(
 )
 init_db()
 
+Instrumentator().instrument(app).expose(app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],  # Vite dev server
