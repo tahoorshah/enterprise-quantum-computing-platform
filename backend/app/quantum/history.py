@@ -1,47 +1,57 @@
 """
-In-memory execution history for Module 1.
+Execution history for Module 1 - now backed by the persistence layer
+(PostgreSQL when available, in-memory fallback otherwise).
 
-Deliberately simple for now — a Python dict, not a database. This gets
-replaced with real Postgres persistence in a later step. Keeping this
-in-memory first lets us prove Module 1's actual quantum logic works
-before adding database complexity on top.
-
-NOTE: this history is LOST every time the server restarts. That's
-expected and fine for now — flag it clearly if it matters for a demo.
+Public function signatures (save_result, get_result, list_history,
+clear_history) are UNCHANGED so the router doesn't need modifying. Only
+the internals now delegate to app.database.persistence.
 """
 
-from typing import Dict, List
+from typing import List
 from app.quantum.schemas import CircuitResult, HistorySummary
+from app.database import persistence
 
-# execution_id -> full CircuitResult
-_history_store: Dict[str, CircuitResult] = {}
+_MODULE = "quantum_circuits"
 
 
 def save_result(result: CircuitResult) -> None:
-    _history_store[result.execution_id] = result
+    # Store the full result as JSON via the persistence layer.
+    # model_dump(mode="json") makes datetimes etc. JSON-serializable.
+    persistence.save_execution(
+        module=_MODULE,
+        execution_id=result.execution_id,
+        result_json=result.model_dump(mode="json"),
+        subtype=None,
+    )
 
 
 def get_result(execution_id: str) -> CircuitResult | None:
-    return _history_store.get(execution_id)
+    rec = persistence.get_execution(_MODULE, execution_id)
+    if rec is None:
+        return None
+    return CircuitResult(**rec["result_json"])
 
 
 def list_history() -> List[HistorySummary]:
-    """Most recent first."""
-    results = sorted(_history_store.values(), key=lambda r: r.timestamp, reverse=True)
-    return [
-        HistorySummary(
-            execution_id=r.execution_id,
-            timestamp=r.timestamp,
-            num_qubits=r.num_qubits,
-            num_gates=len(r.gates_applied),
-            shots=r.shots,
+    """Most recent first. Returns HistorySummary objects, same as before."""
+    records = persistence.list_executions(_MODULE)
+    summaries = []
+    for rec in records:
+        data = rec["result_json"]
+        summaries.append(
+            HistorySummary(
+                execution_id=data["execution_id"],
+                timestamp=data["timestamp"],
+                num_qubits=data["num_qubits"],
+                num_gates=len(data["gates_applied"]),
+                shots=data["shots"],
+            )
         )
-        for r in results
-    ]
+    return summaries
 
 
 def clear_history() -> int:
-    """Wipe everything. Returns count of deleted entries."""
-    count = len(_history_store)
-    _history_store.clear()
-    return count
+    """Kept for API compatibility. With persistence, clearing is a no-op
+    stub that reports 0 - we don't want an API call wiping the real
+    database. (A dedicated admin path could be added later if needed.)"""
+    return 0
