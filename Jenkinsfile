@@ -41,17 +41,16 @@ pipeline {
                     sh '''
                         python3 -m venv venv
                         . venv/bin/activate
-                        pip install --upgrade pip
-                        pip install -r requirements.txt
-                        # Run the full pytest suite. --junitxml produces a
-                        # report Jenkins can display in the UI.
+                        python3 -m pip install --upgrade pip
+                        python3 -m pip install -r requirements.txt
+                        # Run the full pytest suite from inside the backend dir
+                        # so imports like "from app.main import app" resolve.
+                        # --junitxml produces a report Jenkins can display.
                         python3 -m pytest tests/ -v --junitxml=test-results.xml
                     '''
                 }
             }
             post {
-                // Publish test results to Jenkins even if some tests fail,
-                // so you can see WHICH tests failed in the Jenkins UI.
                 always {
                     junit 'backend/test-results.xml'
                 }
