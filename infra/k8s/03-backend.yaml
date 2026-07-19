@@ -1,0 +1,70 @@
+# Backend (FastAPI): Deployment + Service
+# Connects to postgres and redis via their in-cluster service names.
+# Note: DATABASE_URL uses "postgres" (the Service name) as the host -
+# Kubernetes DNS resolves service names to their cluster IPs automatically.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    app: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: qft-backend:latest
+          # imagePullPolicy: Never tells Kubernetes to use the locally-built
+          # image (built into Minikube's Docker) and NOT try to pull from a
+          # remote registry - essential when building images directly into Minikube.
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://qft_admin:changeme_local_dev_only@postgres:5432/qft_quantum_db"
+            - name: REDIS_URL
+              value: "redis://redis:6379/0"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "150m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  labels:
+    app: backend
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 8000
+      targetPort: 8000
+  # ClusterIP: the frontend talks to the backend inside the cluster.
+  # We'll expose the frontend externally instead (see frontend manifest).
+  type: ClusterIP
