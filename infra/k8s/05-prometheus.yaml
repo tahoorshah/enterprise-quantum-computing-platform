@@ -1,0 +1,82 @@
+# Prometheus: ConfigMap (scrape config) + Deployment + Service
+# Prometheus scrapes the backend's /metrics endpoint on a schedule and
+# stores the time-series data. Grafana then queries Prometheus.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  labels:
+    app: prometheus
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s        # how often to pull metrics
+
+    scrape_configs:
+      # Scrape the backend's /metrics endpoint. "backend" is the K8s
+      # Service name; port 8000 matches the backend service.
+      - job_name: 'qft-backend'
+        metrics_path: /metrics
+        static_configs:
+          - targets: ['backend:8000']
+
+      # Prometheus also scrapes itself (standard practice).
+      - job_name: 'prometheus'
+        static_configs:
+          - targets: ['localhost:9090']
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  labels:
+    app: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.54.1
+          imagePullPolicy: Never   # use image loaded into Minikube
+          ports:
+            - containerPort: 9090
+          args:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus"
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  labels:
+    app: prometheus
+spec:
+  selector:
+    app: prometheus
+  ports:
+    - port: 9090
+      targetPort: 9090
+      nodePort: 30090   # exposed so you can open the Prometheus UI in browser
+  type: NodePort
