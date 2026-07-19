@@ -340,3 +340,68 @@ button {
   fill: var(--text-dim);
   font-size: 0.7rem;
 }
+
+/* ---- Portfolio module (Module 2) ---- */
+.comparison-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.3rem;
+  margin-bottom: 1.3rem;
+}
+@media (max-width: 800px) {
+  .comparison-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.data-table th {
+  text-align: left;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  font-weight: 500;
+}
+.data-table td {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.88rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.method-note {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin-bottom: 0.8rem;
+  font-style: italic;
+}
+.muted {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+}
+
+.comparison-grid p {
+  margin-bottom: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.verdict {
+  border-radius: 8px;
+  padding: 0.9rem 1.2rem;
+  margin-bottom: 1.3rem;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+.verdict.match {
+  background: rgba(61, 220, 132, 0.12);
+  border: 1px solid var(--ok);
+  color: #7fe6ac;
+}
+.verdict.nomatch {
+  background: rgba(255, 180, 60, 0.12);
+  border: 1px solid #ffb43c;
+  color: #ffcd80;
+}
