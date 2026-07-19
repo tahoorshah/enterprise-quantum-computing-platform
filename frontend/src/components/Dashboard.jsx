@@ -40,7 +40,7 @@ export default function Dashboard() {
     <div>
       <h2>Executive Quantum Operations Dashboard</h2>
       <p className="subtitle">
-        Aggregated KPIs and activity across all platform modules.
+        Real-time overview of quantum experiments, success rates, and activity across the platform.
       </p>
 
       <button className="btn-secondary" onClick={load} disabled={loading}>
