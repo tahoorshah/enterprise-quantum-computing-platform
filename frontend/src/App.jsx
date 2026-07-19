@@ -4,16 +4,17 @@ import CircuitDesigner from "./components/CircuitDesigner";
 import Algorithms from "./components/Algorithms";
 import Portfolio from "./components/Portfolio";
 import Dashboard from "./components/Dashboard";
+import PQCReadiness from "./components/PQCReadiness";
 import "./App.css";
 
 // The five module screens. For now only Circuit Designer is built;
 // the others show a placeholder until we add them one at a time.
 const MODULES = [
-  { id: "circuit", label: "Circuit Designer", subtitle: "Module 1" },
-  { id: "algorithms", label: "Quantum Algorithms", subtitle: "Module 3" },
-  { id: "portfolio", label: "Portfolio Optimization", subtitle: "Module 2" },
-  { id: "dashboard", label: "Executive Dashboard", subtitle: "Module 4" },
-  { id: "pqc", label: "PQC Readiness", subtitle: "Module 5" },
+  { id: "circuit", label: "Circuit Designer", subtitle: "Build & run circuits" },
+  { id: "algorithms", label: "Quantum Algorithms", subtitle: "Grover, QFT, QAOA, VQE" },
+  { id: "portfolio", label: "Portfolio Optimization", subtitle: "Quantum finance" },
+  { id: "dashboard", label: "Executive Dashboard", subtitle: "KPIs & activity" },
+  { id: "pqc", label: "PQC Readiness", subtitle: "Crypto migration" },
 ];
 
 function Placeholder({ name }) {
@@ -48,7 +49,7 @@ export default function App() {
       case "dashboard":
         return <Dashboard />;
       case "pqc":
-        return <Placeholder name="PQC Readiness" />;
+        return <PQCReadiness />;
       default:
         return null;
     }

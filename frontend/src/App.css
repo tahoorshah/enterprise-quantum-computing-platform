@@ -459,3 +459,66 @@ button {
   text-transform: capitalize;
   margin-top: 0.2rem;
 }
+
+/* ---- PQC Readiness module (Module 5) ---- */
+.crypto-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 0.7rem;
+  background: var(--bg);
+}
+.crypto-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+.crypto-header strong {
+  font-size: 1rem;
+  color: var(--text);
+}
+.crypto-item p {
+  font-size: 0.85rem;
+  margin-bottom: 0.3rem;
+  color: var(--text);
+}
+.crypto-item p.muted {
+  color: var(--text-dim);
+}
+
+.risk-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.risk-badge.critical {
+  background: rgba(255, 92, 92, 0.18);
+  color: #ff8080;
+  border: 1px solid var(--bad);
+}
+.risk-badge.moderate {
+  background: rgba(255, 180, 60, 0.18);
+  color: #ffcd80;
+  border: 1px solid #ffb43c;
+}
+.risk-badge.low {
+  background: rgba(61, 220, 132, 0.15);
+  color: #7fe6ac;
+  border: 1px solid var(--ok);
+}
+
+.fips-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  background: var(--accent-dim);
+  color: #fff;
+  white-space: nowrap;
+}
