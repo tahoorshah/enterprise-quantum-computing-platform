@@ -522,3 +522,24 @@ button {
   color: #fff;
   white-space: nowrap;
 }
+
+/* ---- Multi-Framework module ---- */
+.framework-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+@media (max-width: 900px) {
+  .framework-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.framework-card h3 {
+  color: var(--accent);
+  margin-top: 0;
+}
+.framework-diagram {
+  font-size: 0.7rem;
+  max-height: 200px;
+  overflow: auto;
+}

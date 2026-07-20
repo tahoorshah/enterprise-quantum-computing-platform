@@ -6,6 +6,7 @@ import Portfolio from "./components/Portfolio";
 import Dashboard from "./components/Dashboard";
 import PQCReadiness from "./components/PQCReadiness";
 import "./App.css";
+import Frameworks from "./components/Frameworks";
 
 // The five module screens. For now only Circuit Designer is built;
 // the others show a placeholder until we add them one at a time.
@@ -15,6 +16,7 @@ const MODULES = [
   { id: "portfolio", label: "Portfolio Optimization", subtitle: "Quantum finance" },
   { id: "dashboard", label: "Executive Dashboard", subtitle: "KPIs & activity" },
   { id: "pqc", label: "PQC Readiness", subtitle: "Crypto migration" },
+  { id: "frameworks", label: "Framework Comparison", subtitle: "Qiskit / PennyLane / Cirq" },	
 ];
 
 function Placeholder({ name }) {
@@ -50,6 +52,8 @@ export default function App() {
         return <Dashboard />;
       case "pqc":
         return <PQCReadiness />;
+      case "frameworks":
+        return <Frameworks />;	
       default:
         return null;
     }
