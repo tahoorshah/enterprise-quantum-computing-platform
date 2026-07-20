@@ -18,6 +18,7 @@ from app.database.connection import init_db
 from app.database import persistence
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
+from app.frameworks.router import router as frameworks_router
 app = FastAPI(
     title="QFT Bank Quantum Computing Platform",
     description="Enterprise Quantum Computing Platform - EduQual L6 Capstone (ANPP-OP)",
@@ -54,6 +55,7 @@ app.include_router(algorithms_router, prefix="/api/algorithms", tags=["Quantum A
 app.include_router(optimization_router, prefix="/api/optimization", tags=["Portfolio Optimization"])
 app.include_router(dashboard_router, prefix="/api/dashboard", tags=["Executive Dashboard"])
 app.include_router(pqc_router, prefix="/api/pqc", tags=["Post-Quantum Cryptography"])
+app.include_router(frameworks_router, prefix="/api/frameworks", tags=["Multi-Framework Demo"])
 
 # Future module routers will be included like this, one at a time:
 # from app.quantum.router import router as quantum_router
