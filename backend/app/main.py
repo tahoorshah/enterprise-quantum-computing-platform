@@ -22,6 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 from app.frameworks.router import router as frameworks_router
 from app.ml.router import router as ml_router
+from app.analytics.router import router as analytics_router
 app = FastAPI(
     title="QFT Bank Quantum Computing Platform",
     description="Enterprise Quantum Computing Platform - EduQual L6 Capstone (ANPP-OP)",
@@ -60,3 +61,4 @@ app.include_router(dashboard_router, prefix="/api/dashboard", tags=["Executive D
 app.include_router(pqc_router, prefix="/api/pqc", tags=["Post-Quantum Cryptography"])
 app.include_router(frameworks_router, prefix="/api/frameworks", tags=["Multi-Framework Demo"])
 app.include_router(ml_router, prefix="/api/ml", tags=["Machine Learning"])
+app.include_router(analytics_router, prefix="/api/analytics", tags=["Market Analytics"])
