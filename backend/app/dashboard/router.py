@@ -146,9 +146,9 @@ def research_progress_report():
         "executive_kpis": executive_kpis(),
         "recent_activity": merged_history()[:10],
         "notes": (
-            "This report reflects in-memory execution history for the current "
-            "server session only. History does not persist across server "
-            "restarts in the current build (PostgreSQL persistence is a "
-            "planned, separate step)."
+            "Execution history is persisted through the platform's persistence "
+            "layer: PostgreSQL when the database is reachable, with automatic "
+            "in-memory fallback if it is not (graceful degradation). The active "
+            "backend is reported by the /health endpoint's storage_backend field."
         ),
     }
