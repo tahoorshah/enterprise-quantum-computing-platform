@@ -2,13 +2,15 @@
 QFT Bank - Enterprise Quantum Computing Platform
 Main FastAPI application entry point.
 
-Module routers (quantum, optimization, algorithms, dashboard, pqc)
-get included here as each one is built. For now, just a health check
-to prove the container, database, and redis are all wired correctly.
+All six module routers (quantum circuits, portfolio optimization,
+algorithms, executive dashboard, PQC readiness, multi-framework demo)
+are included below. The app initialises the database (with graceful
+in-memory fallback), exposes Prometheus metrics, and provides a /health
+endpoint that reports the active storage backend.
 """
 
 from fastapi import FastAPI
-from datetime import datetime
+from datetime import datetime, timezone
 from app.quantum.router import router as quantum_router
 from app.algorithms.router import router as algorithms_router
 from app.optimization.router import router as optimization_router
@@ -40,7 +42,7 @@ def root():
     return {
         "service": "QFT Quantum Computing Platform",
         "status": "running",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -56,7 +58,3 @@ app.include_router(optimization_router, prefix="/api/optimization", tags=["Portf
 app.include_router(dashboard_router, prefix="/api/dashboard", tags=["Executive Dashboard"])
 app.include_router(pqc_router, prefix="/api/pqc", tags=["Post-Quantum Cryptography"])
 app.include_router(frameworks_router, prefix="/api/frameworks", tags=["Multi-Framework Demo"])
-
-# Future module routers will be included like this, one at a time:
-# from app.quantum.router import router as quantum_router
-# app.include_router(quantum_router, prefix="/api/quantum", tags=["Quantum Circuits"])
