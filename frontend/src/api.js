@@ -58,5 +58,8 @@ export const api = {
   pqcThreatDemo: (payload) => postJSON("/api/pqc/threat-demo", payload),
   pqcInventoryScan: (payload) => postJSON("/api/pqc/inventory/scan", payload),
   pqcRiskAssessment: () => getJSON("/api/pqc/risk-assessment"),
-  compareFrameworks: (shots) => getJSON(`/api/frameworks/compare?shots=${shots}`),	
+  compareFrameworks: (shots) => getJSON(`/api/frameworks/compare?shots=${shots}`),
+
+  mlCompare: (payload) => postJSON("/api/ml/compare", payload),
+  mlHistory: () => getJSON("/api/ml/history"),	
 };
