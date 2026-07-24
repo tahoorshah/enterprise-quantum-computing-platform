@@ -60,6 +60,13 @@ export const api = {
   pqcRiskAssessment: () => getJSON("/api/pqc/risk-assessment"),
   compareFrameworks: (shots) => getJSON(`/api/frameworks/compare?shots=${shots}`),
 
+  marketAnalytics: (numAssets, seed = 42) =>
+    getJSON(`/api/analytics/market/${numAssets}?seed=${seed}`),
+  marketChartPng: (numAssets, seed = 42) =>
+    getJSON(`/api/analytics/market/${numAssets}/chart?seed=${seed}`),
+  marketChartInteractive: (numAssets, seed = 42) =>
+    getJSON(`/api/analytics/market/${numAssets}/interactive?seed=${seed}`),
+
   mlCompare: (payload) => postJSON("/api/ml/compare", payload),
   mlHistory: () => getJSON("/api/ml/history"),	
 };

@@ -8,6 +8,7 @@ import PQCReadiness from "./components/PQCReadiness";
 import "./App.css";
 import Frameworks from "./components/Frameworks";
 import MLComparison from "./components/MLComparison";
+import Analytics from "./components/Analytics";
 
 // The module screens for the platform's seven modules.
 const MODULES = [
@@ -18,6 +19,7 @@ const MODULES = [
   { id: "pqc", label: "PQC Readiness", subtitle: "Crypto migration" },
   { id: "frameworks", label: "Framework Comparison", subtitle: "Qiskit / PennyLane / Cirq" },	
   { id: "ml", label: "ML vs Quantum", subtitle: "Classical ML comparison" },
+  { id: "analytics", label: "Market Analytics", subtitle: "Pandas / Plotly / Matplotlib" },
 ];
 
 function Placeholder({ name }) {
@@ -57,6 +59,8 @@ export default function App() {
         return <Frameworks />;	
       case "ml":
         return <MLComparison />;
+      case "analytics":
+        return <Analytics />;
       default:
         return null;
     }
