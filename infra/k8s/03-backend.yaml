@@ -26,6 +26,17 @@ spec:
           # image (built into Minikube's Docker) and NOT try to pull from a
           # remote registry - essential when building images directly into Minikube.
           imagePullPolicy: Never
+          # Least-privilege container hardening (CIS Kubernetes Benchmark 5.2,
+          # NIST CSF PR.AC-6). The image builds a UID-1000 user; asserting it
+          # here means the pod fails to start rather than silently running as
+          # root if that ever regresses.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
           ports:
             - containerPort: 8000
           env:

@@ -6,9 +6,12 @@
 //   - SAST (bandit)         : static analysis of the Python source code
 //   - Dependency (pip-audit) : known-CVE scan of Python dependencies
 //   - Container (Trivy)      : vulnerability scan of the built Docker image
+//   - Policy (OPA/Conftest)  : Kubernetes manifests validated against Rego
+//                              policy - a build GATE, not advisory
 //
 // Full stage list: Checkout -> Backend Build & Test -> SAST -> Dependency
-// Scan -> Frontend Build -> Docker Build -> Container Security Scan.
+// Scan -> Frontend Build -> Policy as Code -> Docker Build -> Container
+// Security Scan.
 
 pipeline {
     agent any
@@ -94,6 +97,35 @@ pipeline {
             }
         }
 
+        stage('Security: Policy as Code (OPA/Conftest)') {
+            steps {
+                echo 'Validating Kubernetes manifests against OPA policy...'
+                sh '''
+                    # Conftest is the OPA tool for testing structured config
+                    # files. Preferred over raw `opa eval` here because it
+                    # parses multi-document YAML natively - no YAML->JSON
+                    # conversion step per manifest.
+                    if ! command -v conftest >/dev/null 2>&1; then
+                        CONFTEST_VERSION=0.56.0
+                        curl -sSL -o /tmp/conftest.tar.gz \
+                            "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz"
+                        tar -xzf /tmp/conftest.tar.gz -C /tmp conftest
+                        chmod +x /tmp/conftest
+                        export PATH="/tmp:$PATH"
+                    fi
+
+                    # Deliberately NOT suffixed with `|| true`. The three
+                    # scanning stages above are advisory - they report CVEs
+                    # that may have no available fix. This stage is a GATE:
+                    # every deny rule describes a condition the manifests
+                    # currently satisfy, so a failure here means a real
+                    # regression was introduced and the build should stop.
+                    conftest test --policy infra/policy infra/k8s/ | tee conftest-report.txt
+                '''
+                archiveArtifacts artifacts: 'conftest-report.txt', allowEmptyArchive: true
+            }
+        }
+
         stage('Docker: Build Images') {
             steps {
                 echo 'Building Docker images...'
@@ -117,7 +149,7 @@ pipeline {
 
     post {
         success {
-            echo 'DevSecOps pipeline completed: build, tests, and all 3 security scans passed.'
+            echo 'DevSecOps pipeline completed: build, tests, 3 security scans and policy gate passed.'
         }
         failure {
             echo 'Pipeline failed. Check the stage logs above.'

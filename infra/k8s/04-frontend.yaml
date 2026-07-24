@@ -30,6 +30,22 @@ spec:
               port: 80
             initialDelaySeconds: 5
             periodSeconds: 10
+          # Readiness alone only removes a bad pod from the Service; it never
+          # repairs it. Liveness is what turns a wedged nginx worker - socket
+          # still open, requests no longer served - into an automatic restart.
+          # Added after an OPA policy check flagged its absence; directly
+          # relevant given this container's earlier startup crash-loop.
+          # failureThreshold is deliberately higher than readiness: a restart
+          # is a heavier action than a traffic removal, so it should require
+          # more consecutive evidence of failure.
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
           resources:
             requests:
               memory: "32Mi"
