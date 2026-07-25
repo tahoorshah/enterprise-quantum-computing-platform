@@ -266,13 +266,22 @@ affect correctness.
   baseline remains feasible and QAOA runtimes stay reasonable.
 - **Single-node Kubernetes.** Deployment targets Minikube, which is genuine CNCF-certified
   Kubernetes but single-node; a production deployment would use a multi-node managed cluster.
-- **Scope boundary — production enhancements not built.** Several items in the approved technology
-  stack were deliberately *not* implemented because they have no named deliverable in the project
-  scope and half-building them would add risk without demonstrating quantum competency. These are
-  documented as production enhancements rather than presented as complete: Keycloak (IAM), Open
-  Policy Agent (policy enforcement), Wazuh (host security monitoring), Loki/OpenTelemetry (log
-  aggregation/tracing), and a scikit-learn machine-learning component. The security posture that
-  *is* implemented consists of the three DevSecOps scanning layers (Bandit, pip-audit, Trivy).
+- **Scope boundary — items deliberately not built.** Four technologies from the approved stack
+  were not implemented: Keycloak (IAM), OpenTelemetry (tracing), Wazuh (SIEM), and GitLab CE
+  (CI/CD). Each decision, its rationale, and the production alternative are documented in
+  [`docs/SCOPE_DECISIONS.md`](docs/SCOPE_DECISIONS.md). In summary: no deliverable requires
+  authenticated access; tracing adds little to a single-service architecture already covered by
+  Prometheus; Wazuh requires 4 GiB+ against roughly 7 GiB of demonstration headroom; and GitLab CE
+  duplicates capabilities already provided by GitHub and Jenkins.
+- **Security posture implemented.** Four automated layers in the CI/CD pipeline: Bandit (SAST),
+  pip-audit (dependency CVEs), Trivy (container image scanning), and an Open Policy Agent / Rego
+  policy gate validating every Kubernetes manifest. The backend container runs as a non-root user
+  (UID 1000) with privilege escalation disabled and all capabilities dropped.
+- **Known limitation — Promtail log shipping.** Loki is deployed, operational, and registered as a
+  Grafana datasource. Promtail is deployed with verified RBAC and corrected configuration but is
+  not discovering log targets; the cause appears specific to this Minikube environment's log-path
+  mounting. Full diagnostic history is recorded in
+  [`docs/SCOPE_DECISIONS.md`](docs/SCOPE_DECISIONS.md).
 
 ## 14. Standards and Frameworks Considered
 
@@ -286,10 +295,13 @@ and long-term cybersecurity planning is detailed in the standards write-up under
 
 - Enforce database readiness in Kubernetes via an init-container or readiness gate, removing
   reliance on the in-memory fallback during startup.
-- Implement the documented production-enhancement stack (Keycloak, OPA, Wazuh, Loki/OpenTelemetry)
-  for a full enterprise security and observability posture.
-- Add a machine-learning component (scikit-learn) for, e.g., predicting QAOA parameter starting
-  points to reduce optimizer iterations.
+- Resolve Promtail target discovery to complete the log-aggregation pipeline into the already
+  operational Loki backend.
+- Implement the remaining production-enhancement stack (Keycloak, OpenTelemetry, Wazuh) on
+  infrastructure with sufficient resources, and promote the OPA policy set from a CI-time gate to
+  an in-cluster Gatekeeper admission controller for runtime enforcement.
+- Extend the scikit-learn module beyond asset-selection comparison toward predicting QAOA
+  parameter starting points, reducing optimizer iterations.
 - Extend portfolio optimization beyond brute-force-verifiable sizes using approximate classical
   solvers as the baseline, enabling larger, more realistic asset universes.
 - Provision a multi-node managed Kubernetes cluster (EKS/GKE) via Terraform for true production
