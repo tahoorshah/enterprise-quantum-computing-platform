@@ -72,7 +72,7 @@ backend over the in-cluster network. The backend, PostgreSQL, and Redis are `Clu
 are never reachable directly from outside the cluster.
 
 The 15 mandatory architecture diagrams (enterprise architecture, network flow, data-flow levels 0
-and 1, sequence, ERD, and more) are in [`diagrams/`](diagrams/) as Mermaid source and exported PNGs.
+and 1, sequence, ERD, and more) are in [`diagrams/`](diagrams/) as exported PNGs, indexed in the folder README.
 
 ## 3. Functional Modules
 
@@ -113,13 +113,13 @@ enterprise-quantum-computing-platform/
 │   │   ├── pqc/            # Module 5 — post-quantum cryptography readiness
 │   │   ├── frameworks/     # Module 6 — Qiskit / PennyLane / Cirq comparison
 │   │   └── database/       # persistence layer (PostgreSQL + in-memory fallback)
-│   ├── tests/              # pytest suite (30 tests)
+│   ├── tests/              # pytest suite (41 tests)
 │   └── pytest.ini
 ├── frontend/               # React SPA (6 module UIs) + Nginx production config
 ├── infra/
 │   ├── k8s/                # Kubernetes manifests (Minikube)
 │   └── terraform/          # Terraform IaC (Kubernetes provider)
-├── diagrams/               # 15 mandatory architecture diagrams (Mermaid + PNG)
+├── diagrams/               # 15 mandatory architecture diagrams (PNG, indexed)
 ├── docs/                   # Installation / Deployment / User / Admin guides, reports
 ├── Jenkinsfile             # 7-stage DevSecOps pipeline
 └── docker-compose.yml      # local full-stack quick start
@@ -196,20 +196,22 @@ an init-container or readiness gate would enforce ordering.
 
 ## 9. CI/CD and DevSecOps
 
-A **7-stage Jenkins pipeline** (`Jenkinsfile`) runs security scanning throughout, not just at the
+An **8-stage Jenkins pipeline** (`Jenkinsfile`) runs security scanning throughout, not just at the
 end:
 
 1. **Checkout**
-2. **Backend build + test** — 30 pytest tests
+2. **Backend build + test** — 41 pytest tests
 3. **SAST** — Bandit static analysis
 4. **Dependency scan** — pip-audit
 5. **Frontend build**
-6. **Docker build**
-7. **Container scan** — Trivy
+6. **Policy as code** — Open Policy Agent / Conftest validates every Kubernetes manifest (a build gate, not advisory)
+7. **Docker build**
+8. **Container scan** — Trivy
 
-Three independent security layers (SAST, dependency, container) reflect defence-in-depth. Jenkins
-was chosen over GitLab CE for a lighter resource footprint on the development hardware; both are
-listed in the approved stack.
+Four independent security layers (SAST, dependency, policy, container) reflect defence-in-depth.
+The OPA gate placed before the image build fails fast on manifest violations. Jenkins was chosen
+over GitLab CE for a lighter resource footprint on the development hardware; both are listed in the
+approved stack.
 
 ## 10. Monitoring and Observability
 
@@ -220,11 +222,14 @@ Kubernetes deployment, Prometheus and Grafana are reachable on NodePorts 30090 a
 
 ## 11. Testing
 
-The pytest suite contains **30 tests, all passing**:
+The pytest suite contains **41 tests, all passing**:
 
 - `test_quantum_circuits.py` — 9 tests (Module 1)
 - `test_algorithms.py` — 8 tests (Module 3)
 - `test_portfolio_and_pqc.py` — 12 tests (Modules 2 and 5)
+- `test_analytics_module.py` — 3 tests (analytics)
+- `test_ml_module.py` — 4 tests (Module 7)
+- `test_plotly_charts.py` — 4 tests (interactive analytics)
 - `test_health.py` — 1 test
 
 Run them from `backend/`:
@@ -289,7 +294,7 @@ The design reflects consideration of: ISO/IEC 23837 (quantum computing concepts 
 NIST Post-Quantum Cryptography standards, NIST Cybersecurity Framework 2.0, ISO/IEC 27001, 27017,
 and 27018, COBIT 2019, ITIL 4, the OWASP Top 10, and the CIS Critical Security Controls. How each
 applies to enterprise quantum adoption, financial-systems architecture, cryptographic governance,
-and long-term cybersecurity planning is detailed in the standards write-up under [`docs/`](docs/).
+and long-term cybersecurity planning is detailed in [`docs/standards.md`](docs/standards.md).
 
 ## 15. Recommendations for Future Improvements
 
@@ -309,14 +314,16 @@ and long-term cybersecurity planning is detailed in the standards write-up under
 
 ## 16. Documentation Index
 
-Full documentation lives in [`docs/`](docs/):
+Full documentation lives in [`docs/`](docs/) as Markdown, with PDF copies in [`docs/pdf/`](docs/pdf/):
 
-- **Installation Guide** — prerequisites and environment setup.
-- **Deployment Guide** — Docker Compose, Kubernetes, and Terraform deployment procedures.
-- **User Guide** — using each of the six modules through the web interface.
-- **Administrator Guide** — operations, persistence, monitoring, and troubleshooting.
-- **API Documentation** — endpoint reference (also available live at `/docs`).
-- **Reports** — quantum experiment report, portfolio optimization report, performance testing report.
+- **[Installation Guide](docs/installation.md)** — prerequisites and environment setup.
+- **[Deployment Guide](docs/deployment.md)** — Docker Compose, Kubernetes, and Terraform procedures.
+- **[User Guide](docs/user_guide.md)** — using each module through the web interface.
+- **[Administrator Guide](docs/administrator.md)** — operations, persistence, monitoring, troubleshooting.
+- **[API Documentation](docs/api.md)** — endpoint reference (also live at `/docs`).
+- **[Standards Alignment](docs/standards.md)** — how the Section 8 standards apply to the platform.
+- **[Scope Decisions](docs/SCOPE_DECISIONS.md)** — technologies deliberately not built, with rationale.
+- **Reports** — [quantum experiment](docs/report_quantum.md), [portfolio optimization](docs/report_portfolio.md), and [performance testing](docs/report_performance.md), each with real measured output.
 
 ---
 
