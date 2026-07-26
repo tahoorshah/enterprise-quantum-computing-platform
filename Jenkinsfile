@@ -11,7 +11,7 @@
 //
 // Full stage list: Checkout -> Backend Build & Test -> SAST -> Dependency
 // Scan -> Frontend Build -> Policy as Code -> Docker Build -> Container
-// Security Scan.
+// Security Scan -> SBOM Generation.
 
 pipeline {
     agent any
@@ -143,6 +143,17 @@ pipeline {
                     trivy image --exit-code 0 --severity HIGH,CRITICAL --no-progress ${BACKEND_IMAGE} | tee trivy-report.txt || true
                 '''
                 archiveArtifacts artifacts: 'trivy-report.txt', allowEmptyArchive: true
+            }
+        }
+
+        stage('Security: SBOM Generation (Trivy CycloneDX)') {
+            steps {
+                echo 'Generating CycloneDX SBOMs for both images...'
+                sh '''
+                    trivy image --format cyclonedx --output sbom-backend.json ${BACKEND_IMAGE}
+                    trivy image --format cyclonedx --output sbom-frontend.json ${FRONTEND_IMAGE}
+                '''
+                archiveArtifacts artifacts: 'sbom-*.json', allowEmptyArchive: false
             }
         }
     }
