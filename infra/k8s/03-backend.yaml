@@ -34,7 +34,7 @@ spec:
             runAsNonRoot: true
             runAsUser: 1000
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
           ports:
@@ -47,6 +47,11 @@ spec:
                   key: DATABASE_URL
             - name: REDIS_URL
               value: "redis://redis:6379/0"
+            - name: MPLCONFIGDIR
+              value: "/tmp/matplotlib"
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           readinessProbe:
             httpGet:
               path: /health
@@ -66,6 +71,9 @@ spec:
             limits:
               memory: "1Gi"
               cpu: "1000m"
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
