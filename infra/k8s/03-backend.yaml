@@ -41,7 +41,10 @@ spec:
             - containerPort: 8000
           env:
             - name: DATABASE_URL
-              value: "postgresql://qft_admin:changeme_local_dev_only@postgres:5432/qft_quantum_db"
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: DATABASE_URL
             - name: REDIS_URL
               value: "redis://redis:6379/0"
           readinessProbe:

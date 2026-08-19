@@ -39,11 +39,20 @@ spec:
             - containerPort: 5432
           env:
             - name: POSTGRES_USER
-              value: "qft_admin"
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_USER
             - name: POSTGRES_PASSWORD
-              value: "changeme_local_dev_only"
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
             - name: POSTGRES_DB
-              value: "qft_quantum_db"
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_DB
             # Postgres writes data under a subdirectory so the mounted
             # volume doesn't conflict with the lost+found dir some volumes have
             - name: PGDATA
