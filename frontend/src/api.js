@@ -1,22 +1,33 @@
-// Single source of truth for talking to the backend API.
-//
-// BASE_URL is environment-aware:
-//  - Local Vite dev:      VITE_API_BASE is unset, so we default to
-//                         "http://localhost:8000" (talks to uvicorn directly).
-//  - Kubernetes / nginx:  the production build sets VITE_API_BASE="" (empty),
-//                         so all calls use relative paths like "/api/quantum/..."
-//                         which nginx reverse-proxies to the backend service.
-//
-// This keeps ONE codebase working in both environments - only the build-time
-// env var changes.
 const BASE_URL = import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
+
+let authToken = sessionStorage.getItem("qft_token") || null;
+
+function setToken(token) {
+  authToken = token;
+  if (token) sessionStorage.setItem("qft_token", token);
+  else sessionStorage.removeItem("qft_token");
+}
+
+function getToken() {
+  return authToken;
+}
+
+function authHeaders() {
+  return authToken ? { Authorization: `Bearer ${authToken}` } : {};
+}
+
+function handleUnauthorized() {
+  setToken(null);
+  window.dispatchEvent(new Event("qft-unauthorized"));
+}
 
 async function postJSON(path, body) {
   const res = await fetch(`${BASE_URL}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(body),
   });
+  if (res.status === 401) handleUnauthorized();
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const message = data.detail || `Request failed (${res.status})`;
@@ -26,7 +37,8 @@ async function postJSON(path, body) {
 }
 
 async function getJSON(path) {
-  const res = await fetch(`${BASE_URL}${path}`);
+  const res = await fetch(`${BASE_URL}${path}`, { headers: { ...authHeaders() } });
+  if (res.status === 401) handleUnauthorized();
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const message = data.detail || `Request failed (${res.status})`;
@@ -35,8 +47,32 @@ async function getJSON(path) {
   return data;
 }
 
+async function login(username, password) {
+  const body = new URLSearchParams({ username, password });
+  const res = await fetch(`${BASE_URL}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message = data.detail || `Login failed (${res.status})`;
+    throw new Error(typeof message === "string" ? message : JSON.stringify(message));
+  }
+  setToken(data.access_token);
+  return data;
+}
+
+function logout() {
+  setToken(null);
+}
+
 export const api = {
   health: () => getJSON("/health"),
+  login,
+  logout,
+  getToken,
+  isAuthenticated: () => Boolean(authToken),
 
   executeCircuit: (payload) => postJSON("/api/quantum/execute", payload),
   listGates: () => getJSON("/api/quantum/gates"),
@@ -68,5 +104,5 @@ export const api = {
     getJSON(`/api/analytics/market/${numAssets}/interactive?seed=${seed}`),
 
   mlCompare: (payload) => postJSON("/api/ml/compare", payload),
-  mlHistory: () => getJSON("/api/ml/history"),	
+  mlHistory: () => getJSON("/api/ml/history"),
 };

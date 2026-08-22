@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "./api";
+import Login from "./components/Login";
 import CircuitDesigner from "./components/CircuitDesigner";
 import Algorithms from "./components/Algorithms";
 import Portfolio from "./components/Portfolio";
@@ -10,14 +11,13 @@ import Frameworks from "./components/Frameworks";
 import MLComparison from "./components/MLComparison";
 import Analytics from "./components/Analytics";
 
-// The module screens for the platform's seven modules.
 const MODULES = [
   { id: "circuit", label: "Circuit Designer", subtitle: "Build & run circuits" },
   { id: "algorithms", label: "Quantum Algorithms", subtitle: "Grover, QFT, QAOA, VQE" },
   { id: "portfolio", label: "Portfolio Optimization", subtitle: "Quantum finance" },
   { id: "dashboard", label: "Executive Dashboard", subtitle: "KPIs & activity" },
   { id: "pqc", label: "PQC Readiness", subtitle: "Crypto migration" },
-  { id: "frameworks", label: "Framework Comparison", subtitle: "Qiskit / PennyLane / Cirq" },	
+  { id: "frameworks", label: "Framework Comparison", subtitle: "Qiskit / PennyLane / Cirq" },
   { id: "ml", label: "ML vs Quantum", subtitle: "Classical ML comparison" },
   { id: "analytics", label: "Market Analytics", subtitle: "Pandas / Plotly / Matplotlib" },
 ];
@@ -34,14 +34,32 @@ function Placeholder({ name }) {
 export default function App() {
   const [active, setActive] = useState("circuit");
   const [backend, setBackend] = useState(null);
+  const [authed, setAuthed] = useState(api.isAuthenticated());
+  const [role, setRole] = useState(null);
 
-  // On load, ping the backend health endpoint so we can show a status light
   useEffect(() => {
     api
       .health()
       .then((d) => setBackend(d))
       .catch(() => setBackend({ status: "unreachable" }));
   }, []);
+
+  useEffect(() => {
+    const onUnauthorized = () => setAuthed(false);
+    window.addEventListener("qft-unauthorized", onUnauthorized);
+    return () => window.removeEventListener("qft-unauthorized", onUnauthorized);
+  }, []);
+
+  if (!authed) {
+    return (
+      <Login
+        onSuccess={(data) => {
+          setRole(data.role);
+          setAuthed(true);
+        }}
+      />
+    );
+  }
 
   const renderModule = () => {
     switch (active) {
@@ -56,7 +74,7 @@ export default function App() {
       case "pqc":
         return <PQCReadiness />;
       case "frameworks":
-        return <Frameworks />;	
+        return <Frameworks />;
       case "ml":
         return <MLComparison />;
       case "analytics":
@@ -98,6 +116,19 @@ export default function App() {
               ? `Backend: ${backend.storage_backend}`
               : "Backend unreachable"
             : "Checking backend..."}
+        </div>
+
+        <div className="session-status">
+          <span>{role ? `Signed in: ${role}` : "Signed in"}</span>
+          <button
+            className="logout-btn"
+            onClick={() => {
+              api.logout();
+              setAuthed(false);
+            }}
+          >
+            Log out
+          </button>
         </div>
       </aside>
 

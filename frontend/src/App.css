@@ -543,3 +543,18 @@ button {
   max-height: 200px;
   overflow: auto;
 }
+
+/* ---- Login screen ---- */
+.login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg); }
+.login-card { width: 320px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 2rem; display: flex; flex-direction: column; gap: 0.9rem; }
+.login-card label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.85rem; color: var(--text-dim); }
+.login-card input { background: var(--panel-light); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.6rem; color: var(--text); font-size: 0.9rem; }
+.login-card button { margin-top: 0.4rem; background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 0.6rem; font-weight: 600; cursor: pointer; }
+.login-card button:disabled { opacity: 0.6; cursor: default; }
+.login-error { color: var(--bad); font-size: 0.8rem; }
+.login-hint { font-size: 0.7rem; color: var(--text-dim); line-height: 1.4; }
+
+/* ---- Sidebar session/logout row ---- */
+.session-status { display: flex; align-items: center; justify-content: space-between; font-size: 0.72rem; color: var(--text-dim); padding-top: 0.6rem; margin-top: 0.6rem; border-top: 1px solid var(--border); }
+.logout-btn { background: none; border: 1px solid var(--border); color: var(--text-dim); border-radius: 5px; padding: 0.2rem 0.5rem; font-size: 0.7rem; cursor: pointer; }
+.logout-btn:hover { color: var(--text); border-color: var(--accent); }
