@@ -26,13 +26,15 @@ data:
         url: http://loki:3100
         isDefault: false
 ---
-# Dashboard provider: tells Grafana to auto-load any dashboard JSON found
-# in /etc/grafana/provisioning/dashboards on container start, instead of
-# requiring someone to click "Import" by hand.
+# Dashboard provider + the dashboard JSON itself, in ONE ConfigMap mounted
+# as a single directory. (Mounting a second ConfigMap's file into that same
+# directory via subPath conflicts with the directory-mount from this
+# ConfigMap - Kubernetes/runc rejects it as "mount directory onto a file".
+# One ConfigMap, one directory mount avoids that entirely.)
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: grafana-dashboard-provider
+  name: grafana-dashboards
   labels:
     app: grafana
 data:
@@ -48,18 +50,6 @@ data:
         allowUiUpdates: true
         options:
           path: /etc/grafana/provisioning/dashboards
----
-# The dashboard itself: platform overview (request rate, latency, error
-# rate, in-flight requests) sourced from prometheus-fastapi-instrumentator
-# metrics (http_requests_total / http_request_duration_seconds), plus
-# process/container health from the default exporter series.
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: grafana-dashboard-platform-overview
-  labels:
-    app: grafana
-data:
   platform-overview.json: |
     {
       "title": "QFT Bank - Platform Overview",
@@ -148,11 +138,8 @@ spec:
           volumeMounts:
             - name: datasource
               mountPath: /etc/grafana/provisioning/datasources
-            - name: dashboard-provider
+            - name: dashboards
               mountPath: /etc/grafana/provisioning/dashboards
-            - name: dashboard-platform-overview
-              mountPath: /etc/grafana/provisioning/dashboards/platform-overview.json
-              subPath: platform-overview.json
           resources:
             requests:
               memory: "128Mi"
@@ -164,12 +151,9 @@ spec:
         - name: datasource
           configMap:
             name: grafana-datasource
-        - name: dashboard-provider
+        - name: dashboards
           configMap:
-            name: grafana-dashboard-provider
-        - name: dashboard-platform-overview
-          configMap:
-            name: grafana-dashboard-platform-overview
+            name: grafana-dashboards
 ---
 apiVersion: v1
 kind: Service
