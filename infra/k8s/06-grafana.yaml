@@ -84,12 +84,12 @@ data:
         },
         {
           "id": 3,
-          "title": "Error rate (5xx / total)",
+          "title": "Error rate (4xx+5xx / total)",
           "type": "timeseries",
           "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
           "targets": [
             {
-              "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m]))",
+              "expr": "sum(rate(http_requests_total{status=~\"4xx|5xx\"}[5m])) / sum(rate(http_requests_total[5m]))",
               "legendFormat": "error ratio"
             }
           ]
@@ -100,7 +100,7 @@ data:
           "type": "stat",
           "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
           "targets": [
-            { "expr": "up{job=\"backend\"}", "legendFormat": "backend" }
+            { "expr": "up{job=\"qft-backend\"}", "legendFormat": "backend" }
           ]
         }
       ]
