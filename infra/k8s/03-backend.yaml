@@ -47,6 +47,12 @@ spec:
                   key: DATABASE_URL
             - name: REDIS_URL
               value: "redis://redis:6379/0"
+            # Browser origins allowed to call the API. Comma-separated.
+            # localhost covers local dev; add the deployment's public origin
+            # (e.g. http://<host>:5173) for a remote demo. A wildcard is not
+            # used here because it would defeat allow_credentials.
+            - name: CORS_ORIGINS
+              value: "http://localhost:5173,http://localhost:30080"
             - name: MPLCONFIGDIR
               value: "/tmp/matplotlib"
           volumeMounts:
