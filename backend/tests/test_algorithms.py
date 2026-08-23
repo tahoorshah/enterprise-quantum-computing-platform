@@ -84,3 +84,33 @@ def test_vqe_endpoint():
     })
     assert response.status_code == 200
     assert response.json()["algorithm"] == "vqe"
+
+
+def test_grover_claim_is_scoped_to_query_complexity_not_wall_clock():
+    """
+    The rejection letter warned against overstating quantum-vs-classical
+    performance. This checks the speedup claim is explicitly scoped to
+    query count, not presented as measured execution speed.
+    """
+    from app.algorithms.grover import run_grover_search
+
+    result = run_grover_search(num_qubits=3, marked_state="101", shots=256)
+    comparison = result["query_complexity_comparison"]
+
+    assert "theoretical_query_reduction_factor" in comparison
+    assert "claim_scope" in comparison
+    scope_text = comparison["claim_scope"].lower()
+    assert "not" in scope_text and "wall-clock" in scope_text
+    assert "oracle quer" in scope_text or "query" in scope_text
+
+
+def test_grover_query_reduction_factor_matches_iteration_count():
+    """The reduction factor must be derivable from the actual iteration count used, not asserted separately."""
+    from app.algorithms.grover import run_grover_search
+
+    result = run_grover_search(num_qubits=3, marked_state="011", shots=256)
+    comparison = result["query_complexity_comparison"]
+
+    expected = round(comparison["classical_avg_lookups_needed"] / comparison["quantum_oracle_calls_needed"], 2)
+    assert comparison["theoretical_query_reduction_factor"] == expected
+    assert comparison["quantum_oracle_calls_needed"] == result["iterations_used"]

@@ -10,6 +10,15 @@ Business relevance (for the viva): Grover's gives a quadratic speedup for
 unstructured search — O(sqrt(N)) instead of O(N). In finance this maps to
 searching unsorted transaction/fraud databases, or searching a solution
 space in optimization problems faster than classical brute force.
+
+CLAIM DISCIPLINE: the "speedup" below is a QUERY-COMPLEXITY comparison
+(oracle calls needed), not a measured wall-clock speed advantage. This
+platform runs on a classical simulator, where simulating a quantum
+circuit is far MORE computationally expensive than the classical search
+it replaces - so on this hardware, Grover's is not actually faster in
+practice. The complexity advantage is real and is what the literature
+means by "quadratic speedup"; it is not the same claim as "this ran
+faster," and the two must not be conflated.
 """
 
 import math
@@ -25,14 +34,10 @@ def build_oracle(num_qubits: int, marked_state: str) -> QuantumCircuit:
     """
     oracle = QuantumCircuit(num_qubits)
 
-    # Flip qubits that should be 0 in the marked state, so the marked
-    # state temporarily looks like all-1s (which is what our multi-controlled-Z
-    # below targets).
     for i, bit in enumerate(reversed(marked_state)):
         if bit == "0":
             oracle.x(i)
 
-    # Multi-controlled Z: flip the phase only when all qubits are |1>
     if num_qubits == 1:
         oracle.z(0)
     else:
@@ -40,7 +45,6 @@ def build_oracle(num_qubits: int, marked_state: str) -> QuantumCircuit:
         oracle.mcx(list(range(num_qubits - 1)), num_qubits - 1)
         oracle.h(num_qubits - 1)
 
-    # Undo the X flips
     for i, bit in enumerate(reversed(marked_state)):
         if bit == "0":
             oracle.x(i)
@@ -109,7 +113,7 @@ def run_grover_search(num_qubits: int, marked_state: str, shots: int = 1024) -> 
 
     total_states = 2 ** num_qubits
     classical_avg_lookups = total_states / 2  # average case, linear search
-    quantum_lookups = iterations
+    quantum_oracle_calls = iterations
 
     return {
         "marked_state": marked_state,
@@ -119,10 +123,21 @@ def run_grover_search(num_qubits: int, marked_state: str, shots: int = 1024) -> 
         "counts": counts,
         "probabilities": {k: round(v / shots, 4) for k, v in counts.items()},
         "success_probability": round(counts.get(marked_state, 0) / shots, 4),
-        "classical_comparison": {
+        "query_complexity_comparison": {
             "search_space_size": total_states,
             "classical_avg_lookups_needed": classical_avg_lookups,
-            "quantum_oracle_calls_needed": quantum_lookups,
-            "speedup_factor": round(classical_avg_lookups / quantum_lookups, 2) if quantum_lookups > 0 else None,
+            "quantum_oracle_calls_needed": quantum_oracle_calls,
+            "theoretical_query_reduction_factor": round(classical_avg_lookups / quantum_oracle_calls, 2) if quantum_oracle_calls > 0 else None,
+            "claim_scope": (
+                "This compares NUMBER OF ORACLE QUERIES, not measured execution "
+                "time. Grover's algorithm's quadratic advantage (O(sqrt(N)) vs "
+                "O(N) queries) is a query-complexity result, and it is what is "
+                "shown here. It is NOT a claim that this run executed faster: on "
+                "a classical simulator, simulating each quantum oracle call costs "
+                "far more compute than one classical lookup would, so no wall-clock "
+                "speed advantage exists or is measured on this hardware. Any real "
+                "speed advantage would require physical quantum hardware at a "
+                "scale where circuit simulation cost is no longer the bottleneck."
+            ),
         },
     }

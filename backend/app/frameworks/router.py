@@ -1,28 +1,43 @@
 """
-Module 6 - Multi-Framework Quantum Demonstration: API endpoint.
+Module 6 - Multi-Framework Quantum Demonstration: API endpoints.
 
-Exposes the cross-framework (Qiskit / PennyLane / Cirq) Bell-state
-demonstration, satisfying the capstone stack requirement for all three
-quantum frameworks.
-
-Endpoint:
-    GET /api/frameworks/compare   - run the Bell state on all 3 frameworks
+Endpoints:
+    GET /api/frameworks/compare         - both demos on all 3 frameworks + validation
+    GET /api/frameworks/bell            - Bell state comparison only
+    GET /api/frameworks/superposition   - superposition comparison only
 """
 
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
-from app.frameworks.multi_framework import run_all_frameworks
+
+from app.frameworks.multi_framework import (
+    run_all_frameworks,
+    run_bell_comparison,
+    run_superposition_comparison,
+)
 
 router = APIRouter()
 
 
 @router.get("/compare")
-def compare_frameworks(shots: int = Query(default=1024, ge=64, le=8192)):
-    """
-    Run the same Bell-state circuit on Qiskit, PennyLane, and Cirq and
-    return each framework's measurement counts side by side, confirming
-    they all produce the same (entangled) result.
-    """
+def compare_frameworks(shots: int = Query(default=1024, ge=64, le=8192), seed: Optional[int] = Query(default=None)):
     try:
-        return run_all_frameworks(shots=shots)
+        return run_all_frameworks(shots=shots, seed=seed)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Framework comparison failed: {e}")
+
+
+@router.get("/bell")
+def compare_bell(shots: int = Query(default=1024, ge=64, le=8192), seed: Optional[int] = Query(default=None)):
+    try:
+        return run_bell_comparison(shots=shots, seed=seed)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Bell comparison failed: {e}")
+
+
+@router.get("/superposition")
+def compare_superposition(shots: int = Query(default=1024, ge=64, le=8192), seed: Optional[int] = Query(default=None)):
+    try:
+        return run_superposition_comparison(shots=shots, seed=seed)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Superposition comparison failed: {e}")

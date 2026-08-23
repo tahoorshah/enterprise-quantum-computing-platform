@@ -6,15 +6,18 @@ The capstone spec explicitly requires 'cryptographic inventory management
 QFT Bank, so this generates a reproducible, plausible inventory of
 banking systems and their current cryptographic usage, then scores each
 one for post-quantum migration urgency.
+
+Each system is also assigned an accountable owner and an escalation path
+(app.governance.roles) - an inventory entry with a risk score but no
+owner cannot actually be governed.
 """
 
 import random
 from typing import List, Dict
 
+from app.governance.roles import assign_system_owner, escalation_path
 
-# A plausible set of systems a bank like QFT Bank would actually run,
-# each using a specific classical algorithm today, with a data
-# sensitivity classification driving how urgently it needs to migrate.
+
 SYSTEM_TEMPLATES = [
     {"name": "Core Banking Transaction Ledger", "current_algorithm": "RSA-2048", "data_sensitivity": "CRITICAL", "data_lifetime_years": 30},
     {"name": "Customer Authentication Service", "current_algorithm": "ECDSA-P256", "data_sensitivity": "CRITICAL", "data_lifetime_years": 10},
@@ -30,13 +33,10 @@ SYSTEM_TEMPLATES = [
     {"name": "Public Website TLS Certificate", "current_algorithm": "ECDHE-RSA", "data_sensitivity": "LOW", "data_lifetime_years": 2},
 ]
 
-# Base risk contribution per algorithm - RSA/ECC/DH are CRITICAL because
-# Shor's algorithm breaks them entirely (not just weakens them), while
-# AES-256 only needs a bit-length upgrade consideration under Grover's.
 ALGORITHM_BASE_RISK = {
-    "RSA-2048": 9, "RSA-4096": 8,  # 4096 buys a bit more time but still fully broken by Shor's eventually
+    "RSA-2048": 9, "RSA-4096": 8,
     "ECDSA-P256": 9, "ECDSA-P384": 9, "ECDH-P384": 9, "ECDHE-RSA": 9,
-    "AES-256": 2,  # genuinely lower risk - only weakened (not broken) by Grover's
+    "AES-256": 2,
 }
 
 SENSITIVITY_WEIGHT = {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
@@ -56,13 +56,6 @@ def generate_inventory(seed: int = 42) -> List[Dict]:
         base_risk = ALGORITHM_BASE_RISK.get(system["current_algorithm"], 5)
         sensitivity_weight = SENSITIVITY_WEIGHT[system["data_sensitivity"]]
 
-        # Harvest-now-decrypt-later factor: longer data lifetime = more
-        # urgent, since "harvested" ciphertext stays valuable to attack
-        # for as long as the underlying data needs to stay confidential.
-        # multiplier ranges 1x (short-lived) to 4x (30+ year retention),
-        # scaled so a CRITICAL, long-lived, Shor's-broken system can
-        # actually reach the IMMEDIATE tier - a worst-case system should
-        # not be mathematically capped below the top urgency category.
         lifetime_factor = min(system["data_lifetime_years"] / 10, 3.0)
         multiplier = 1 + lifetime_factor
 
@@ -78,8 +71,10 @@ def generate_inventory(seed: int = 42) -> List[Dict]:
         else:
             urgency = "LOW"
 
+        system_id = f"SYS-{i+1:03d}"
+
         inventory.append({
-            "system_id": f"SYS-{i+1:03d}",
+            "system_id": system_id,
             "system_name": system["name"],
             "current_algorithm": system["current_algorithm"],
             "data_sensitivity": system["data_sensitivity"],
@@ -87,6 +82,8 @@ def generate_inventory(seed: int = 42) -> List[Dict]:
             "quantum_risk_score": risk_score,
             "migration_urgency": urgency,
             "recommended_replacement": _recommend_replacement(system["current_algorithm"]),
+            "accountable_owner": assign_system_owner(system_id, system["data_sensitivity"]),
+            "escalation": escalation_path(urgency),
         })
 
     return inventory
@@ -117,12 +114,17 @@ def organizational_risk_summary(inventory: List[Dict]) -> Dict:
     critical_sensitivity_systems = [s for s in inventory if s["data_sensitivity"] == "CRITICAL"]
     immediate_action_systems = [s for s in inventory if s["migration_urgency"] == "IMMEDIATE"]
 
+    owners_with_immediate_systems = sorted({
+        s["accountable_owner"] for s in immediate_action_systems
+    })
+
     return {
         "total_systems_scanned": total,
         "average_quantum_risk_score": avg_risk,
         "systems_by_urgency": urgency_counts,
         "critical_sensitivity_system_count": len(critical_sensitivity_systems),
         "systems_requiring_immediate_action": [s["system_id"] for s in immediate_action_systems],
+        "owners_accountable_for_immediate_systems": owners_with_immediate_systems,
         "overall_organizational_risk_rating": (
             "CRITICAL" if avg_risk >= 60 else
             "HIGH" if avg_risk >= 40 else

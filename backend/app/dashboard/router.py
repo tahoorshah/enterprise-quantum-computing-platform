@@ -4,7 +4,7 @@ Module 4 - Executive Quantum Operations Dashboard: API endpoints.
 This module does NOT run any new quantum computations. It aggregates and
 summarizes data already produced by Modules 1 (Circuit Design), 2
 (Portfolio Optimization), and 3 (Algorithm Demos) - reading from their
-existing in-memory history stores and the shared metrics counters.
+existing history stores and the shared metrics counters.
 
 Endpoints:
     GET /api/dashboard/overview   - top-level KPIs across all modules
@@ -17,6 +17,7 @@ from fastapi import APIRouter
 from datetime import datetime, timezone
 
 from app.dashboard import metrics
+from app.database import persistence
 from app.quantum import history as quantum_history
 from app.algorithms import history as algorithms_history
 from app.optimization import history as optimization_history
@@ -50,9 +51,46 @@ def _resource_utilization() -> dict:
     }
 
 
+def _simulation_performance() -> dict:
+    """
+    Simulation performance (Module 4 mandatory display). Durations are the
+    wall-clock time of circuit construction + AerSimulator execution, measured
+    per run and stored on the execution_runs row. These are measured values
+    from this platform's own runs on the demonstration hardware — they are not
+    benchmarks against quantum hardware and should not be read as such.
+    """
+    durations = [
+        r["duration_ms"]
+        for r in persistence.list_executions("quantum_circuits")
+        if r.get("duration_ms") is not None
+    ]
+
+    if not durations:
+        return {
+            "runs_with_timing": 0,
+            "note": "No timed executions recorded yet.",
+        }
+
+    ordered = sorted(durations)
+    n = len(ordered)
+    median = ordered[n // 2] if n % 2 else (ordered[n // 2 - 1] + ordered[n // 2]) / 2
+
+    return {
+        "runs_with_timing": n,
+        "fastest_ms": ordered[0],
+        "slowest_ms": ordered[-1],
+        "median_ms": round(median, 2),
+        "mean_ms": round(sum(ordered) / n, 2),
+        "measurement_scope": (
+            "Wall-clock circuit build + simulate time only; excludes network, "
+            "auth, and persistence overhead. Single-node Minikube on one EC2 instance."
+        ),
+    }
+
+
 @router.get("/overview")
 def dashboard_overview():
-    """Top-level snapshot: execution counts, success rates, resource use."""
+    """Top-level snapshot: execution counts, success rates, performance, resource use."""
     quantum_count = len(quantum_history.list_history())
     algo_count = len(algorithms_history.list_history())
     portfolio_count = len(optimization_history.list_history())
@@ -67,6 +105,7 @@ def dashboard_overview():
             "module3_algorithm_demos": algo_count,
         },
         "success_rates_by_module": metrics.get_all_stats(),
+        "simulation_performance": _simulation_performance(),
         "resource_utilization": _resource_utilization(),
     }
 

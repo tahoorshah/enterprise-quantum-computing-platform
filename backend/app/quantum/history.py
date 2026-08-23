@@ -17,11 +17,14 @@ _MODULE = "quantum_circuits"
 def save_result(result: CircuitResult) -> None:
     # Store the full result as JSON via the persistence layer.
     # model_dump(mode="json") makes datetimes etc. JSON-serializable.
+    # duration_ms is promoted onto the execution_runs row so simulation
+    # performance can be queried without unpacking every JSON payload.
     persistence.save_execution(
         module=_MODULE,
         execution_id=result.execution_id,
         result_json=result.model_dump(mode="json"),
         subtype=None,
+        duration_ms=int(result.execution_time_ms) if result.execution_time_ms is not None else None,
     )
 
 

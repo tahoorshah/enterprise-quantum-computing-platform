@@ -2,6 +2,12 @@
 Module 2 continued: QAOA circuit for the portfolio Ising Hamiltonian,
 and the full pipeline tying market data -> QUBO -> QAOA -> comparison
 against the classical brute-force optimum.
+
+QAOA is a stochastic, sampling-based method: a single run is one draw, not
+a result. The pipeline therefore runs the optimisation over several
+independent trials and reports the distribution of outcomes (how often the
+exact optimum was recovered, how often the cardinality constraint was
+satisfied, and the spread of costs) rather than a single pass/fail.
 """
 
 import time
@@ -49,6 +55,11 @@ def build_portfolio_qaoa_circuit(h, J, num_assets: int, gamma: float, beta: floa
 
     qc.measure(range(num_assets), range(num_assets))
     return qc
+
+
+def selection_count(bitstring: str) -> int:
+    """How many assets a bitstring actually selects (number of set bits)."""
+    return sum(1 for b in bitstring if b == "1")
 
 
 def run_qaoa_portfolio(h, J, offset: float, Q, num_assets: int, p: int = 1,
@@ -106,11 +117,16 @@ def run_qaoa_portfolio(h, J, offset: float, Q, num_assets: int, p: int = 1,
 
 def run_portfolio_optimization(num_assets: int, budget: int, risk_aversion: float = 0.5,
                                 penalty_weight: float = 2.0, shots: int = 512,
-                                max_iterations: int = 30, p_layers: int = 1, seed: int = 42) -> dict:
+                                max_iterations: int = 30, p_layers: int = 1, seed: int = 42,
+                                trials: int = 5) -> dict:
     """
     Full Module 2 pipeline: generate simulated market data, build the QUBO,
-    solve classically (brute force, exact) AND via QAOA (quantum), then
-    compare both against real portfolio metrics.
+    solve classically (brute force, exact) AND via QAOA (quantum) over
+    `trials` independent runs, then compare against real portfolio metrics.
+
+    The classical brute force is deterministic and runs once - it is exact.
+    QAOA is stochastic and runs `trials` times, so its reliability can be
+    reported as a rate over repeated evaluation instead of a single outcome.
     """
     if num_assets > 8:
         raise ValueError("num_assets capped at 8 to keep brute-force comparison and QAOA runtime reasonable")
@@ -121,20 +137,49 @@ def run_portfolio_optimization(num_assets: int, budget: int, risk_aversion: floa
     Q = build_qubo(expected_returns, covariance, budget, risk_aversion, penalty_weight)
     h, J, offset = qubo_to_ising(Q)
 
-    # Classical (exact, brute force)
+    # Classical (exact, brute force) - deterministic, so a single run suffices
     start_classical = time.perf_counter()
     classical_bitstring, classical_cost = brute_force_optimum(Q)
     classical_time_ms = (time.perf_counter() - start_classical) * 1000
+    classical_metrics = portfolio_metrics(classical_bitstring, expected_returns, covariance, asset_names)
+    classical_selection_count = selection_count(classical_bitstring)
 
-    # Quantum (QAOA)
+    # Quantum (QAOA) - stochastic, so repeat and report the distribution
     start_quantum = time.perf_counter()
-    qaoa_result = run_qaoa_portfolio(h, J, offset, Q, num_assets, p=p_layers, shots=shots, max_iterations=max_iterations)
+    trial_records = []
+    trial_raw = []
+
+    for t in range(trials):
+        qaoa_result = run_qaoa_portfolio(
+            h, J, offset, Q, num_assets, p=p_layers,
+            shots=shots, max_iterations=max_iterations,
+        )
+        bs = qaoa_result["best_bitstring_found"]
+        n_selected = selection_count(bs)
+
+        trial_records.append({
+            "trial": t + 1,
+            "bitstring": bs,
+            "qubo_cost": qaoa_result["best_qubo_cost"],
+            "assets_selected": n_selected,
+            "cardinality_constraint_satisfied": n_selected == budget,
+            "matched_classical_optimum": bs == classical_bitstring,
+            "iterations_run": qaoa_result["iterations_run"],
+        })
+        trial_raw.append(qaoa_result)
+
     quantum_time_ms = (time.perf_counter() - start_quantum) * 1000
 
-    classical_metrics = portfolio_metrics(classical_bitstring, expected_returns, covariance, asset_names)
-    quantum_metrics = portfolio_metrics(qaoa_result["best_bitstring_found"], expected_returns, covariance, asset_names)
+    # Best trial by QUBO cost - used for the detailed single-run view below
+    best_index = min(range(trials), key=lambda i: trial_records[i]["qubo_cost"])
+    best_trial = trial_raw[best_index]
+    best_bitstring = best_trial["best_bitstring_found"]
+    quantum_metrics = portfolio_metrics(best_bitstring, expected_returns, covariance, asset_names)
 
-    matched_optimal = qaoa_result["best_bitstring_found"] == classical_bitstring
+    matches = sum(1 for r in trial_records if r["matched_classical_optimum"])
+    constraint_ok = sum(1 for r in trial_records if r["cardinality_constraint_satisfied"])
+    costs = [r["qubo_cost"] for r in trial_records]
+    mean_cost = sum(costs) / len(costs)
 
     return {
         "market_data": {
@@ -147,34 +192,66 @@ def run_portfolio_optimization(num_assets: int, budget: int, risk_aversion: floa
             "budget_assets_to_select": budget,
             "risk_aversion": risk_aversion,
             "penalty_weight": penalty_weight,
+            "shots_per_circuit": shots,
+            "max_optimizer_iterations": max_iterations,
+            "qaoa_layers_p": p_layers,
+            "market_data_seed": seed,
+            "qaoa_trials": trials,
         },
         "classical_solution": {
             "method": "Brute force (exact, guaranteed optimal)",
             "bitstring": classical_bitstring,
             "qubo_cost": round(classical_cost, 4),
             "execution_time_ms": round(classical_time_ms, 3),
+            "assets_selected": classical_selection_count,
+            "cardinality_constraint_satisfied": classical_selection_count == budget,
             "portfolio_metrics": classical_metrics,
         },
         "quantum_solution": {
             "method": "QAOA (COBYLA-optimized, genuine per-iteration circuit execution)",
-            "bitstring": qaoa_result["best_bitstring_found"],
-            "qubo_cost": qaoa_result["best_qubo_cost"],
-            "execution_time_ms": round(quantum_time_ms, 3),
-            "iterations_run": qaoa_result["iterations_run"],
-            "convergence_history": qaoa_result["convergence_history"],
-            "optimal_gamma": qaoa_result["optimal_gamma"],
-            "optimal_beta": qaoa_result["optimal_beta"],
-            "circuit_diagram_text": qaoa_result["circuit_diagram_text"],
+            "note_on_this_section": (
+                "Detail shown is the single best trial of "
+                f"{trials}, selected by lowest QUBO cost. Reliability across all "
+                "trials is reported under repeated_evaluation."
+            ),
+            "bitstring": best_bitstring,
+            "qubo_cost": best_trial["best_qubo_cost"],
+            "total_execution_time_all_trials_ms": round(quantum_time_ms, 3),
+            "iterations_run": best_trial["iterations_run"],
+            "convergence_history": best_trial["convergence_history"],
+            "optimal_gamma": best_trial["optimal_gamma"],
+            "optimal_beta": best_trial["optimal_beta"],
+            "circuit_diagram_text": best_trial["circuit_diagram_text"],
+            "assets_selected": selection_count(best_bitstring),
+            "cardinality_constraint_satisfied": selection_count(best_bitstring) == budget,
             "portfolio_metrics": quantum_metrics,
         },
+        "repeated_evaluation": {
+            "trials_run": trials,
+            "per_trial": trial_records,
+            "times_matched_classical_optimum": matches,
+            "optimum_recovery_rate": round(matches / trials, 4),
+            "times_cardinality_constraint_satisfied": constraint_ok,
+            "cardinality_satisfaction_rate": round(constraint_ok / trials, 4),
+            "qubo_cost_best": round(min(costs), 4),
+            "qubo_cost_worst": round(max(costs), 4),
+            "qubo_cost_mean": round(mean_cost, 4),
+            "interpretation": (
+                f"Across {trials} independent QAOA runs on identical inputs, the exact "
+                f"optimum was recovered {matches} time(s). This rate describes this "
+                "problem instance at this parameter setting on a simulator, and should "
+                "not be generalised to other instances, larger asset counts, or hardware."
+            ),
+        },
         "comparison": {
-            "quantum_matched_classical_optimum": matched_optimal,
-            "cost_difference": round(qaoa_result["best_qubo_cost"] - classical_cost, 4),
+            "quantum_matched_classical_optimum": best_bitstring == classical_bitstring,
+            "cost_difference": round(best_trial["best_qubo_cost"] - classical_cost, 4),
             "note": (
                 "For small problems like this, brute force is exact and typically faster in wall-clock "
                 "time since it avoids simulator overhead. QAOA's advantage is theoretical: it doesn't "
                 "need to enumerate all 2^n combinations, which matters as n grows far beyond what brute "
-                "force can handle. This demo intentionally uses small n so results can be verified exactly."
+                "force can handle. This demo intentionally uses small n so results can be verified exactly. "
+                "No speed advantage is claimed or measured here."
             ),
         },
     }

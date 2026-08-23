@@ -20,6 +20,8 @@ from app.pqc.crypto_reference import CLASSICAL_ALGORITHMS_AT_RISK, NIST_PQC_STAN
 from app.pqc.inventory import generate_inventory, organizational_risk_summary
 from app.pqc.migration_plan import generate_migration_plan
 from app.pqc.quantum_threat_demo import run_qpe_demo
+from app.governance.roles import governance_model
+from app.governance.risk_register import risk_register_summary
 from app.dashboard import metrics
 
 router = APIRouter()
@@ -27,7 +29,11 @@ router = APIRouter()
 # Simple in-memory cache of the last inventory scan - this module doesn't
 # need a full history log like Modules 1-3 (there's no "convergence" to
 # track), just the most recent snapshot for the risk/migration/report
-# endpoints to build on.
+# endpoints to build on. KNOWN LIMITATION: resets on pod restart and is
+# not shared across replicas. Acceptable here because the inventory is
+# fully deterministic from its seed - regenerating it is cheap, unlike
+# the execution history in Modules 1-3, which is why those went to the
+# database and this did not.
 _last_inventory_cache = {"inventory": None, "generated_at": None, "seed": None}
 
 
@@ -125,9 +131,9 @@ def migration_plan():
 def readiness_report():
     """
     Full executive PQC readiness report - combines inventory, risk
-    assessment, migration plan, and reference material into one
-    document-style response, per the spec's 'executive readiness
-    reports' requirement.
+    assessment, migration plan, governance model, and reference material
+    into one document-style response, per the spec's 'executive
+    readiness reports' requirement.
     """
     if _last_inventory_cache["inventory"] is None:
         raise HTTPException(
@@ -142,6 +148,8 @@ def readiness_report():
         "organizational_risk_summary": organizational_risk_summary(inventory),
         "full_inventory": inventory,
         "migration_plan": generate_migration_plan(inventory),
+        "governance_model": governance_model(),
+        "platform_risk_summary": risk_register_summary(),
         "reference_nist_standards": NIST_PQC_STANDARDS,
         "threat_context": QUANTUM_THREAT_TIMELINE_CONTEXT,
     }

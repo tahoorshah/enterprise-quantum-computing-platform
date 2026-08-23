@@ -122,3 +122,178 @@ def test_pqc_threat_demo_endpoint():
         "theta": 0.25, "num_counting_qubits": 3, "shots": 512,
     })
     assert response.status_code == 200
+
+def test_repeated_evaluation_runs_requested_number_of_trials():
+    """QAOA is stochastic; the pipeline must report every trial, not just one."""
+    from app.optimization.qaoa_portfolio import run_portfolio_optimization
+
+    result = run_portfolio_optimization(num_assets=4, budget=2, shots=128, max_iterations=8, trials=3)
+    repeated = result["repeated_evaluation"]
+
+    assert repeated["trials_run"] == 3
+    assert len(repeated["per_trial"]) == 3
+    assert [r["trial"] for r in repeated["per_trial"]] == [1, 2, 3]
+
+
+def test_repeated_evaluation_rates_are_consistent_with_trial_records():
+    """Reported success rates must be derivable from the per-trial data, not asserted."""
+    from app.optimization.qaoa_portfolio import run_portfolio_optimization
+
+    result = run_portfolio_optimization(num_assets=4, budget=2, shots=128, max_iterations=8, trials=4)
+    repeated = result["repeated_evaluation"]
+    trials = repeated["per_trial"]
+
+    expected_matches = sum(1 for t in trials if t["matched_classical_optimum"])
+    expected_constraint = sum(1 for t in trials if t["cardinality_constraint_satisfied"])
+
+    assert repeated["times_matched_classical_optimum"] == expected_matches
+    assert repeated["optimum_recovery_rate"] == round(expected_matches / 4, 4)
+    assert repeated["times_cardinality_constraint_satisfied"] == expected_constraint
+    assert repeated["cardinality_satisfaction_rate"] == round(expected_constraint / 4, 4)
+
+    costs = [t["qubo_cost"] for t in trials]
+    assert repeated["qubo_cost_best"] == round(min(costs), 4)
+    assert repeated["qubo_cost_worst"] == round(max(costs), 4)
+
+
+def test_cardinality_constraint_is_reported_for_both_solutions():
+    """Selection count must be explicit in the output, not left for the reader to count."""
+    from app.optimization.qaoa_portfolio import run_portfolio_optimization
+
+    result = run_portfolio_optimization(num_assets=4, budget=2, shots=128, max_iterations=8, trials=2)
+
+    classical = result["classical_solution"]
+    quantum = result["quantum_solution"]
+
+    assert classical["assets_selected"] == 2
+    assert classical["cardinality_constraint_satisfied"] is True
+    assert "assets_selected" in quantum
+    assert "cardinality_constraint_satisfied" in quantum
+
+
+def test_classical_brute_force_is_exact_optimum_over_all_trials():
+    """No QAOA trial may beat brute force — it enumerates every combination."""
+    from app.optimization.qaoa_portfolio import run_portfolio_optimization
+
+    result = run_portfolio_optimization(num_assets=4, budget=2, shots=128, max_iterations=8, trials=3)
+    classical_cost = result["classical_solution"]["qubo_cost"]
+
+    for trial in result["repeated_evaluation"]["per_trial"]:
+        assert trial["qubo_cost"] >= classical_cost - 1e-6
+
+
+def test_inventory_systems_have_accountable_owner():
+    from app.pqc.inventory import generate_inventory
+
+    inventory = generate_inventory(seed=42)
+    for system in inventory:
+        assert system["accountable_owner"], f"{system['system_id']} has no owner"
+        assert "escalation" in system
+        assert "review_frequency" in system["escalation"]
+
+
+def test_immediate_systems_escalate_faster_than_low_urgency():
+    from app.governance.roles import escalation_path
+
+    immediate = escalation_path("IMMEDIATE")
+    low = escalation_path("LOW")
+
+    assert immediate["overdue_threshold_days"] < low["overdue_threshold_days"]
+
+
+def test_migration_plan_phases_carry_governance():
+    from app.pqc.inventory import generate_inventory
+    from app.pqc.migration_plan import generate_migration_plan
+
+    inventory = generate_inventory(seed=42)
+    plan = generate_migration_plan(inventory)
+
+    assert len(plan["phases"]) == 5
+    for phase in plan["phases"]:
+        assert phase["governance"]["required_approvals"], f"Phase {phase['phase']} has no approvers"
+        assert phase["governance"]["exit_criteria"], f"Phase {phase['phase']} has no exit criteria"
+
+
+def test_every_phase_requires_ciso_signoff():
+    """CISO is accountable for the overall migration outcome - must appear in every phase."""
+    from app.governance.roles import PHASE_APPROVAL_REQUIREMENTS
+
+    for phase, roles in PHASE_APPROVAL_REQUIREMENTS.items():
+        assert "CISO" in roles, f"Phase {phase} has no CISO sign-off"
+
+
+def test_governance_model_discloses_single_operator_scope():
+    """The proof-of-concept limitation must be stated, not implied."""
+    from app.governance.roles import governance_model
+
+    model = governance_model()
+    assert "one" in model["scope_limitation"].lower() or "single" in model["scope_limitation"].lower()
+
+
+def test_governance_endpoints_respond():
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.auth.security import get_current_user
+
+    client = TestClient(app)
+    app.dependency_overrides[get_current_user] = lambda: {"username": "analyst", "role": "financial_analyst"}
+    try:
+        assert client.get("/api/governance/model").status_code == 200
+        assert client.get("/api/governance/roles").status_code == 200
+        assert client.get("/api/governance/phase/1").status_code == 200
+        assert client.get("/api/governance/phase/99").status_code == 404
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_risk_register_entries_have_owner_and_mitigation():
+    from app.governance.risk_register import get_risk_register
+
+    risks = get_risk_register()
+    assert len(risks) >= 15
+    for r in risks:
+        assert r["owner_role"], f"{r['id']} has no owner"
+        assert r["mitigation"], f"{r['id']} has no mitigation statement"
+        assert r["risk_score"] == r["likelihood"] * r["impact"]
+
+
+def test_risk_register_covers_all_nine_mandatory_categories():
+    """The rejection letter names these categories explicitly - all must be represented."""
+    from app.governance.risk_register import get_risk_register
+
+    required = {
+        "Technical", "Financial", "Security", "Operational", "Data",
+        "Quantum Computing", "Migration", "Availability", "Implementation",
+    }
+    risks = get_risk_register()
+    present = {r["category"] for r in risks}
+    missing = required - present
+    assert not missing, f"Missing risk categories: {missing}"
+
+
+def test_risk_register_summary_is_consistent_with_full_register():
+    from app.governance.risk_register import get_risk_register, risk_register_summary
+
+    risks = get_risk_register()
+    summary = risk_register_summary()
+
+    assert summary["total_risks"] == len(risks)
+    assert sum(summary["by_rating"].values()) == len(risks)
+    assert sum(summary["by_category"].values()) == len(risks)
+
+
+def test_risk_register_endpoints_respond():
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.auth.security import get_current_user
+
+    client = TestClient(app)
+    app.dependency_overrides[get_current_user] = lambda: {"username": "analyst", "role": "financial_analyst"}
+    try:
+        full = client.get("/api/governance/risk-register")
+        summary = client.get("/api/governance/risk-register/summary")
+        assert full.status_code == 200
+        assert summary.status_code == 200
+        assert len(full.json()) == summary.json()["total_risks"]
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)

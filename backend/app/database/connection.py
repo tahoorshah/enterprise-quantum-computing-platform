@@ -57,6 +57,8 @@ def init_db() -> bool:
         SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         DATABASE_AVAILABLE = True
         logger.info("Database connected: persistence ENABLED (PostgreSQL).")
+
+        _seed_demo_users()
         return True
 
     except SQLAlchemyError as e:
@@ -80,3 +82,27 @@ def get_session():
     if not DATABASE_AVAILABLE or SessionLocal is None:
         return None
     return SessionLocal()
+
+
+def _seed_demo_users():
+    """
+    Insert the two demo accounts into the real users table if not already
+    present. Replaces the old hardcoded-dict user store (Security
+    Architecture gap): credentials are unchanged, but now backed by a
+    real row with a primary key, usable as a foreign key for auditability.
+    """
+    from app.database.models import User
+    from app.auth.security import _SEED_USERS, pwd_context
+
+    session = SessionLocal()
+    try:
+        for u in _SEED_USERS:
+            if not session.query(User).filter(User.username == u["username"]).first():
+                session.add(User(
+                    username=u["username"],
+                    hashed_password=pwd_context.hash(u["password"]),
+                    role=u["role"],
+                ))
+        session.commit()
+    finally:
+        session.close()

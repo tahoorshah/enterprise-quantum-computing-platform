@@ -1,5 +1,4 @@
 """Pydantic schemas for Module 2 - Financial Portfolio Optimization Platform."""
-
 from pydantic import BaseModel, Field
 from typing import Dict, Any
 
@@ -13,11 +12,12 @@ class PortfolioOptimizationRequest(BaseModel):
     max_iterations: int = Field(default=30, ge=5, le=100)
     p_layers: int = Field(default=1, ge=1, le=3)
     seed: int = Field(default=42, description="Random seed for reproducible simulated market data")
+    trials: int = Field(default=5, ge=1, le=20, description="Independent QAOA runs. QAOA is stochastic, so repeated evaluation gives a reliability rate instead of a single outcome.")
 
     model_config = {
         "json_schema_extra": {
             "examples": [
-                {"num_assets": 4, "budget": 2, "risk_aversion": 0.5, "shots": 512, "max_iterations": 30}
+                {"num_assets": 4, "budget": 2, "risk_aversion": 0.5, "shots": 512, "max_iterations": 30, "trials": 5}
             ]
         }
     }

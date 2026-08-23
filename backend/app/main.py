@@ -2,9 +2,9 @@
 QFT Bank - Enterprise Quantum Computing Platform
 Main FastAPI application entry point.
 
-All six module routers (quantum circuits, portfolio optimization,
-algorithms, executive dashboard, PQC readiness, multi-framework demo)
-are included below. The app initialises the database (with graceful
+All module routers (quantum circuits, portfolio optimization, algorithms,
+executive dashboard, PQC readiness, multi-framework demo, governance) are
+included below. The app initialises the database (with graceful
 in-memory fallback), exposes Prometheus metrics, and provides a /health
 endpoint that reports the active storage backend.
 """
@@ -18,6 +18,7 @@ from app.algorithms.router import router as algorithms_router
 from app.optimization.router import router as optimization_router
 from app.dashboard.router import router as dashboard_router
 from app.pqc.router import router as pqc_router
+from app.governance.router import router as governance_router
 from app.database.connection import init_db
 from app.database import persistence
 from fastapi.middleware.cors import CORSMiddleware
@@ -71,6 +72,7 @@ app.include_router(algorithms_router, prefix="/api/algorithms", tags=["Quantum A
 app.include_router(optimization_router, prefix="/api/optimization", tags=["Portfolio Optimization"], dependencies=[Depends(get_current_user)])
 app.include_router(dashboard_router, prefix="/api/dashboard", tags=["Executive Dashboard"], dependencies=[Depends(get_current_user)])
 app.include_router(pqc_router, prefix="/api/pqc", tags=["Post-Quantum Cryptography"], dependencies=[Depends(get_current_user)])
+app.include_router(governance_router, prefix="/api/governance", tags=["Governance"], dependencies=[Depends(get_current_user)])
 app.include_router(frameworks_router, prefix="/api/frameworks", tags=["Multi-Framework Demo"], dependencies=[Depends(get_current_user)])
 app.include_router(ml_router, prefix="/api/ml", tags=["Machine Learning"], dependencies=[Depends(get_current_user)])
 app.include_router(analytics_router, prefix="/api/analytics", tags=["Market Analytics"], dependencies=[Depends(get_current_user)])

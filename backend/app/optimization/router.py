@@ -6,7 +6,6 @@ Endpoints:
     GET  /api/optimization/history         - list past optimization runs
     GET  /api/optimization/history/{id}    - full detail of one past run
 """
-
 import uuid
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
@@ -38,6 +37,7 @@ def optimize_portfolio(request: PortfolioOptimizationRequest):
             max_iterations=request.max_iterations,
             p_layers=request.p_layers,
             seed=request.seed,
+            trials=request.trials,
         )
     except ValueError as e:
         metrics.record_attempt("portfolio_optimization", success=False)
@@ -47,6 +47,7 @@ def optimize_portfolio(request: PortfolioOptimizationRequest):
         raise HTTPException(status_code=500, detail=f"Portfolio optimization failed: {e}")
 
     metrics.record_attempt("portfolio_optimization", success=True)
+
     result = PortfolioOptimizationResult(
         execution_id=str(uuid.uuid4()),
         timestamp=datetime.now(timezone.utc).isoformat(),
