@@ -84,6 +84,7 @@ and 1, sequence, ERD, and more) are in [`diagrams/`](diagrams/) as exported PNGs
 | 4 | Executive Operations Dashboard | `app/dashboard/` | Aggregates Modules 1–3 into KPIs, success rates, resource utilization, merged history, and a research progress report. Runs no new quantum computation. |
 | 5 | Post-Quantum Cryptography Readiness | `app/pqc/` | Classical-crypto vulnerability reference, a conceptual quantum-threat demo (reuses Module 3's QFT for phase estimation), the NIST PQC standards catalogue (ML-KEM, ML-DSA, SLH-DSA, HQC), a simulated cryptographic inventory scan with risk scoring, and a 5-phase migration plan. |
 | 6 | Multi-Framework Demonstration | `app/frameworks/` | Constructs the same Bell state in Qiskit, PennyLane, and Cirq to show framework-independent correctness; satisfies the spec's PennyLane and Cirq requirements. |
+| 7 | Governance & Risk | `app/governance/` | Platform-wide accountability model (roles, approval gates, phase exit criteria) and a 16-entry risk register covering all 9 mandatory risk categories, each with an owner, likelihood/impact score, and stated mitigation. Explicitly discloses that this proof-of-concept is operated by a single person, so the role separation described is the model QFT Bank would run under, not an enforced control. |
 
 ## 4. Technology Stack
 
@@ -222,27 +223,33 @@ Kubernetes deployment, Prometheus and Grafana are reachable on NodePorts 30090 a
 
 ## 11. Testing
 
-The pytest suite contains **41 tests, all passing**:
+The pytest suite contains **76 tests, all passing**:
 
 - `test_quantum_circuits.py` — 9 tests (Module 1)
-- `test_algorithms.py` — 8 tests (Module 3)
-- `test_portfolio_and_pqc.py` — 12 tests (Modules 2 and 5)
+- `test_algorithms.py` — 10 tests (Module 3, includes Grover query-complexity claim-scoping tests)
+- `test_frameworks.py` — 13 tests (Module 6, statistical cross-framework validation, deterministic under a fixed seed)
+- `test_portfolio_and_pqc.py` — 26 tests (Modules 2 and 5, plus governance and risk-register coverage)
 - `test_analytics_module.py` — 3 tests (analytics)
-- `test_ml_module.py` — 4 tests (Module 7)
+- `test_ml_module.py` — 4 tests (Module 8)
 - `test_plotly_charts.py` — 4 tests (interactive analytics)
+- `test_auth.py` — 6 tests (JWT auth against a real database-backed user store)
 - `test_health.py` — 1 test
 
 Run them from `backend/`:
-
 ```bash
 python3 -m pytest -q
 ```
-
 The suite includes a **regression test for the QUBO→Ising conversion** (`test_qubo_to_ising_
 conversion_is_consistent`), which guards a real mathematical bug that was found and fixed during
 development (see [Key Design Decisions](#12-key-quantum-computing-design-decisions)). One
 deprecation warning is emitted by FastAPI's test client (a Starlette/httpx notice); it does not
 affect correctness.
+
+**Coverage mapping.** Which mandatory areas (quantum modules, optimisation logic, application
+services, persistence, security, failure behaviour, deployment, integration) each test file
+covers — including an explicit statement of what is NOT covered by automated tests (infrastructure,
+CI/CD pipeline, live cross-service integration) — is documented in
+[`docs/TESTING_COVERAGE.md`](docs/TESTING_COVERAGE.md).
 
 ## 12. Key Quantum-Computing Design Decisions
 
