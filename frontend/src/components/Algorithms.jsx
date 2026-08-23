@@ -218,9 +218,9 @@ function AlgorithmResult({ algo, data }) {
           <p>
             <strong>Iterations used:</strong> {r.iterations_used} &nbsp;|&nbsp;
             <strong> Classical avg lookups:</strong>{" "}
-            {r.classical_comparison.classical_avg_lookups_needed} vs{" "}
+            {r.query_complexity_comparison.classical_avg_lookups_needed} vs{" "}
             <strong>quantum:</strong>{" "}
-            {r.classical_comparison.quantum_oracle_calls_needed}
+            {r.query_complexity_comparison.quantum_oracle_calls_needed}
           </p>
         </>
       )}
