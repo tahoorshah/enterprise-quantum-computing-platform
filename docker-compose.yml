@@ -50,5 +50,39 @@ services:
     volumes:
       - ./backend:/app
 
+  # ---- Observability stack ----
+  # Prometheus scrapes backend:8000/metrics; Grafana visualizes it.
+  # Mirrors infra/k8s/{05-prometheus,06-grafana}.yaml so the compose demo
+  # shows the same monitoring the K8s deployment does.
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: qft_prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - backend
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: qft_grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./infra/observability/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./infra/observability/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
 volumes:
   postgres_data:
+  prometheus_data:
+  grafana_data:

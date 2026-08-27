@@ -62,8 +62,21 @@ def root():
 
 @app.get("/health")
 def health_check():
-    """Basic liveness check. Also reports which storage backend is active."""
-    return {"status": "healthy", "storage_backend": persistence.storage_backend()}
+    """
+    Liveness + degradation check. The app stays up on the in-memory
+    fallback, but that is a degraded state (no cross-restart persistence),
+    so a monitoring system should be able to see it. We report status
+    "degraded" and database=false in that case rather than a misleading
+    "healthy", which lets Prometheus/alerting fire on it.
+    """
+    from app.database import connection
+
+    db_up = connection.DATABASE_AVAILABLE
+    return {
+        "status": "healthy" if db_up else "degraded",
+        "database": db_up,
+        "storage_backend": persistence.storage_backend(),
+    }
 
 
 app.include_router(auth_router)

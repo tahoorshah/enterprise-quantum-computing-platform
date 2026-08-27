@@ -1,0 +1,15 @@
+# Prometheus scrape config for the docker-compose stack. Mirrors the
+# k8s ConfigMap (infra/k8s/05-prometheus.yaml) but targets the compose
+# service name "backend" on port 8000.
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'qft-backend'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['backend:8000']
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

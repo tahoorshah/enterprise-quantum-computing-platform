@@ -1,6 +1,12 @@
 """
 JWT authentication core, backed by a real users table (fixes the
 POC-hardcoded-store gap named in the Security Architecture diagram).
+
+Graceful degradation: if the database is unavailable at startup, the
+platform falls back to in-memory storage for history. Authentication
+now degrades the same way -- the seed demo accounts remain usable so a
+bare local run or a DB hiccup during a live demo does not lock every
+user out of the entire API.
 """
 import os
 from datetime import datetime, timedelta, timezone
@@ -34,9 +40,24 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
+def _authenticate_in_memory(username: str, password: str):
+    """
+    Fallback used when the database is unavailable. Verifies the request
+    against the seed accounts directly so login still works in in-memory
+    mode.
+    """
+    for u in _SEED_USERS:
+        if u["username"] == username and password == u["password"]:
+            return {"username": u["username"], "role": u["role"]}
+    return None
+
+
 def authenticate_user(username: str, password: str):
+    # In-memory fallback: mirror the history layer's graceful degradation
+    # so a missing DB does not disable authentication for the whole app.
     if not connection.DATABASE_AVAILABLE:
-        return None
+        return _authenticate_in_memory(username, password)
+
     session = connection.get_session()
     try:
         user = session.query(User).filter(User.username == username).first()
