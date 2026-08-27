@@ -2,11 +2,19 @@
 Module 3 - Quantum Algorithm Demonstration Platform: API endpoints.
 
 Endpoints:
-    POST /api/algorithms/grover   - Grover's search
-    POST /api/algorithms/qft      - Quantum Fourier Transform demo
-    POST /api/algorithms/qaoa     - QAOA on Max-Cut
-    POST /api/algorithms/vqe      - VQE ground-state energy
-    GET  /api/algorithms/history  - list past executions of any algorithm
+    POST /api/algorithms/grover           - Grover's search (Qiskit)
+    POST /api/algorithms/grover-cirq      - Grover's search (native Cirq)
+    POST /api/algorithms/qft              - Quantum Fourier Transform demo
+    POST /api/algorithms/qaoa             - QAOA on Max-Cut
+    POST /api/algorithms/vqe              - VQE ground-state energy (Qiskit)
+    POST /api/algorithms/vqe-pennylane    - VQE ground-state energy (native PennyLane)
+    GET  /api/algorithms/history          - list past executions of any algorithm
+
+The Cirq and PennyLane variants are independent implementations of the
+same algorithm and problem as their Qiskit counterparts (same oracle/
+ansatz construction, same demo Hamiltonian, same optimizer), so results
+are directly comparable across frameworks - see grover_cirq.py and
+vqe_pennylane.py for details.
 """
 
 import uuid
@@ -15,9 +23,11 @@ from fastapi import APIRouter, HTTPException
 
 from app.algorithms.schemas import GroverRequest, QFTRequest, QAOARequest, VQERequest, AlgorithmResult
 from app.algorithms.grover import run_grover_search
+from app.algorithms.grover_cirq import run_grover_search_cirq
 from app.algorithms.qft import demonstrate_qft
 from app.algorithms.qaoa import run_qaoa_maxcut
 from app.algorithms.vqe import run_vqe
+from app.algorithms.vqe_pennylane import run_vqe_pennylane
 from app.algorithms import history
 from app.dashboard import metrics
 
@@ -47,6 +57,20 @@ def grover_search(request: GroverRequest):
         raise HTTPException(status_code=500, detail=f"Grover execution failed: {e}")
     metrics.record_attempt("algorithms", success=True)
     return _wrap_and_save("grover", result_data)
+
+
+@router.post("/grover-cirq", response_model=AlgorithmResult)
+def grover_search_cirq(request: GroverRequest):
+    try:
+        result_data = run_grover_search_cirq(request.num_qubits, request.marked_state, request.shots)
+    except ValueError as e:
+        metrics.record_attempt("algorithms", success=False)
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        metrics.record_attempt("algorithms", success=False)
+        raise HTTPException(status_code=500, detail=f"Cirq Grover execution failed: {e}")
+    metrics.record_attempt("algorithms", success=True)
+    return _wrap_and_save("grover_cirq", result_data)
 
 
 @router.post("/qft", response_model=AlgorithmResult)
@@ -90,6 +114,17 @@ def vqe_ground_state(request: VQERequest):
         raise HTTPException(status_code=500, detail=f"VQE execution failed: {e}")
     metrics.record_attempt("algorithms", success=True)
     return _wrap_and_save("vqe", result_data)
+
+
+@router.post("/vqe-pennylane", response_model=AlgorithmResult)
+def vqe_ground_state_pennylane(request: VQERequest):
+    try:
+        result_data = run_vqe_pennylane(request.num_qubits, request.max_iterations)
+    except Exception as e:
+        metrics.record_attempt("algorithms", success=False)
+        raise HTTPException(status_code=500, detail=f"PennyLane VQE execution failed: {e}")
+    metrics.record_attempt("algorithms", success=True)
+    return _wrap_and_save("vqe_pennylane", result_data)
 
 
 @router.get("/history")
