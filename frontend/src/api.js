@@ -79,9 +79,11 @@ export const api = {
   circuitHistory: () => getJSON("/api/quantum/history"),
 
   runGrover: (payload) => postJSON("/api/algorithms/grover", payload),
+  runGroverCirq: (payload) => postJSON("/api/algorithms/grover-cirq", payload),
   runQFT: (payload) => postJSON("/api/algorithms/qft", payload),
   runQAOA: (payload) => postJSON("/api/algorithms/qaoa", payload),
   runVQE: (payload) => postJSON("/api/algorithms/vqe", payload),
+  runVQEPennylane: (payload) => postJSON("/api/algorithms/vqe-pennylane", payload),
 
   optimizePortfolio: (payload) => postJSON("/api/optimization/portfolio", payload),
 

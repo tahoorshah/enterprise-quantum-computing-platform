@@ -21,11 +21,13 @@ export default function Algorithms() {
   // Inputs for each algorithm
   const [groverQubits, setGroverQubits] = useState(3);
   const [groverMarked, setGroverMarked] = useState("101");
+  const [groverFramework, setGroverFramework] = useState("qiskit");
   const [qftQubits, setQftQubits] = useState(3);
   const [qftInput, setQftInput] = useState("110");
   const [qaoaEdges, setQaoaEdges] = useState("0,1; 1,2; 0,2");
   const [qaoaNodes, setQaoaNodes] = useState(3);
   const [vqeQubits, setVqeQubits] = useState(3);
+  const [vqeFramework, setVqeFramework] = useState("qiskit");
 
   const switchAlgo = (id) => {
     setAlgo(id);
@@ -40,11 +42,15 @@ export default function Algorithms() {
     try {
       let data;
       if (algo === "grover") {
-        data = await api.runGrover({
+        const payload = {
           num_qubits: Number(groverQubits),
           marked_state: groverMarked,
           shots: 1024,
-        });
+        };
+        data =
+          groverFramework === "cirq"
+            ? await api.runGroverCirq(payload)
+            : await api.runGrover(payload);
       } else if (algo === "qft") {
         data = await api.runQFT({
           num_qubits: Number(qftQubits),
@@ -66,10 +72,14 @@ export default function Algorithms() {
           max_iterations: 20,
         });
       } else if (algo === "vqe") {
-        data = await api.runVQE({
+        const payload = {
           num_qubits: Number(vqeQubits),
           max_iterations: 40,
-        });
+        };
+        data =
+          vqeFramework === "pennylane"
+            ? await api.runVQEPennylane(payload)
+            : await api.runVQE(payload);
       }
       setResult(data);
     } catch (e) {
@@ -119,6 +129,16 @@ export default function Algorithms() {
                 onChange={(e) => setGroverMarked(e.target.value)}
                 placeholder="e.g. 101"
               />
+            </label>
+            <label>
+              Framework:
+              <select
+                value={groverFramework}
+                onChange={(e) => setGroverFramework(e.target.value)}
+              >
+                <option value="qiskit">Qiskit</option>
+                <option value="cirq">Cirq (native)</option>
+              </select>
             </label>
           </div>
         )}
@@ -183,6 +203,16 @@ export default function Algorithms() {
                 onChange={(e) => setVqeQubits(e.target.value)}
               />
             </label>
+            <label>
+              Framework:
+              <select
+                value={vqeFramework}
+                onChange={(e) => setVqeFramework(e.target.value)}
+              >
+                <option value="qiskit">Qiskit</option>
+                <option value="pennylane">PennyLane (native)</option>
+              </select>
+            </label>
           </div>
         )}
 
@@ -206,7 +236,15 @@ function AlgorithmResult({ algo, data }) {
 
   return (
     <div className="card result-card">
-      <h3>Results — {data.algorithm.toUpperCase()}</h3>
+      <h3>
+        Results — {data.algorithm.replace(/_/g, " ").toUpperCase()}
+        {r.framework && (
+          <span style={{ color: "var(--text-dim)", fontWeight: "normal" }}>
+            {" "}
+            ({r.framework})
+          </span>
+        )}
+      </h3>
 
       {algo === "grover" && (
         <>
@@ -222,6 +260,11 @@ function AlgorithmResult({ algo, data }) {
             <strong>quantum:</strong>{" "}
             {r.query_complexity_comparison.quantum_oracle_calls_needed}
           </p>
+          {r.bit_order_note && (
+            <p style={{ color: "var(--text-dim)", fontSize: "0.85rem" }}>
+              {r.bit_order_note}
+            </p>
+          )}
         </>
       )}
 
@@ -266,6 +309,11 @@ function AlgorithmResult({ algo, data }) {
             valueKey="energy"
             label="Energy"
           />
+          {r.note && (
+            <p style={{ color: "var(--text-dim)", fontSize: "0.85rem" }}>
+              {r.note}
+            </p>
+          )}
         </>
       )}
 
