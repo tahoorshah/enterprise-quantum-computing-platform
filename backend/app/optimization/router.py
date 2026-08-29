@@ -14,8 +14,16 @@ from app.optimization.schemas import PortfolioOptimizationRequest, PortfolioOpti
 from app.optimization.qaoa_portfolio import run_portfolio_optimization
 from app.optimization import history
 from app.dashboard import metrics
+from app.cache.cache import make_cache_key, get_cached, set_cached
 
 router = APIRouter()
+
+# QAOA portfolio optimization runs several independent simulator trials
+# per request and is the most expensive endpoint in the platform, so a
+# cache hit is worth a lot; an hour is long enough to absorb repeated
+# hits on the same inputs (e.g. a dashboard or demo re-running identical
+# parameters) without serving results that go stale on a live market.
+_PORTFOLIO_CACHE_TTL_SECONDS = 3600
 
 
 @router.post("/portfolio", response_model=PortfolioOptimizationResult)
@@ -27,24 +35,41 @@ def optimize_portfolio(request: PortfolioOptimizationRequest):
             detail=f"budget ({request.budget}) must be less than num_assets ({request.num_assets})"
         )
 
-    try:
-        result_data = run_portfolio_optimization(
-            num_assets=request.num_assets,
-            budget=request.budget,
-            risk_aversion=request.risk_aversion,
-            penalty_weight=request.penalty_weight,
-            shots=request.shots,
-            max_iterations=request.max_iterations,
-            p_layers=request.p_layers,
-            seed=request.seed,
-            trials=request.trials,
-        )
-    except ValueError as e:
-        metrics.record_attempt("portfolio_optimization", success=False)
-        raise HTTPException(status_code=422, detail=str(e))
-    except Exception as e:
-        metrics.record_attempt("portfolio_optimization", success=False)
-        raise HTTPException(status_code=500, detail=f"Portfolio optimization failed: {e}")
+    cache_key = make_cache_key(
+        "portfolio_optimization",
+        num_assets=request.num_assets,
+        budget=request.budget,
+        risk_aversion=request.risk_aversion,
+        penalty_weight=request.penalty_weight,
+        shots=request.shots,
+        max_iterations=request.max_iterations,
+        p_layers=request.p_layers,
+        seed=request.seed,
+        trials=request.trials,
+    )
+    result_data = get_cached(cache_key)
+
+    if result_data is None:
+        try:
+            result_data = run_portfolio_optimization(
+                num_assets=request.num_assets,
+                budget=request.budget,
+                risk_aversion=request.risk_aversion,
+                penalty_weight=request.penalty_weight,
+                shots=request.shots,
+                max_iterations=request.max_iterations,
+                p_layers=request.p_layers,
+                seed=request.seed,
+                trials=request.trials,
+            )
+        except ValueError as e:
+            metrics.record_attempt("portfolio_optimization", success=False)
+            raise HTTPException(status_code=422, detail=str(e))
+        except Exception as e:
+            metrics.record_attempt("portfolio_optimization", success=False)
+            raise HTTPException(status_code=500, detail=f"Portfolio optimization failed: {e}")
+
+        set_cached(cache_key, result_data, _PORTFOLIO_CACHE_TTL_SECONDS)
 
     metrics.record_attempt("portfolio_optimization", success=True)
 

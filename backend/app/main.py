@@ -21,6 +21,9 @@ from app.pqc.router import router as pqc_router
 from app.governance.router import router as governance_router
 from app.database.connection import init_db
 from app.database import persistence
+from app.cache.redis_client import init_redis
+from slowapi.errors import RateLimitExceeded
+from app.rate_limit import limiter, rate_limit_exceeded_handler, enforce_default_rate_limit
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 from app.frameworks.router import router as frameworks_router
@@ -33,6 +36,10 @@ app = FastAPI(
     version="0.1.0",
 )
 init_db()
+init_redis()
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 Instrumentator().instrument(app).expose(app)
 # Allowed frontend origins. Configurable via CORS_ORIGINS so this stays
@@ -70,22 +77,33 @@ def health_check():
     "healthy", which lets Prometheus/alerting fire on it.
     """
     from app.database import connection
+    from app.cache import redis_client
 
     db_up = connection.DATABASE_AVAILABLE
+    cache_up = redis_client.REDIS_AVAILABLE
     return {
         "status": "healthy" if db_up else "degraded",
         "database": db_up,
         "storage_backend": persistence.storage_backend(),
+        "cache": cache_up,
+        "cache_backend": "redis" if cache_up else "none (fallback: compute directly)",
     }
 
 
+# Every router below (other than auth, which carries its own strict
+# per-endpoint limit) picks up the platform default rate limit via this
+# same dependencies=[...] list that already applies JWT auth - rate
+# limiting runs first so an abusive/excess caller is rejected before
+# paying for an auth DB lookup.
+_default_deps = [Depends(enforce_default_rate_limit), Depends(get_current_user)]
+
 app.include_router(auth_router)
-app.include_router(quantum_router, prefix="/api/quantum", tags=["Quantum Circuits"], dependencies=[Depends(get_current_user)])
-app.include_router(algorithms_router, prefix="/api/algorithms", tags=["Quantum Algorithms"], dependencies=[Depends(get_current_user)])
-app.include_router(optimization_router, prefix="/api/optimization", tags=["Portfolio Optimization"], dependencies=[Depends(get_current_user)])
-app.include_router(dashboard_router, prefix="/api/dashboard", tags=["Executive Dashboard"], dependencies=[Depends(get_current_user)])
-app.include_router(pqc_router, prefix="/api/pqc", tags=["Post-Quantum Cryptography"], dependencies=[Depends(get_current_user)])
-app.include_router(governance_router, prefix="/api/governance", tags=["Governance"], dependencies=[Depends(get_current_user)])
-app.include_router(frameworks_router, prefix="/api/frameworks", tags=["Multi-Framework Demo"], dependencies=[Depends(get_current_user)])
-app.include_router(ml_router, prefix="/api/ml", tags=["Machine Learning"], dependencies=[Depends(get_current_user)])
-app.include_router(analytics_router, prefix="/api/analytics", tags=["Market Analytics"], dependencies=[Depends(get_current_user)])
+app.include_router(quantum_router, prefix="/api/quantum", tags=["Quantum Circuits"], dependencies=_default_deps)
+app.include_router(algorithms_router, prefix="/api/algorithms", tags=["Quantum Algorithms"], dependencies=_default_deps)
+app.include_router(optimization_router, prefix="/api/optimization", tags=["Portfolio Optimization"], dependencies=_default_deps)
+app.include_router(dashboard_router, prefix="/api/dashboard", tags=["Executive Dashboard"], dependencies=_default_deps)
+app.include_router(pqc_router, prefix="/api/pqc", tags=["Post-Quantum Cryptography"], dependencies=_default_deps)
+app.include_router(governance_router, prefix="/api/governance", tags=["Governance"], dependencies=_default_deps)
+app.include_router(frameworks_router, prefix="/api/frameworks", tags=["Multi-Framework Demo"], dependencies=_default_deps)
+app.include_router(ml_router, prefix="/api/ml", tags=["Machine Learning"], dependencies=_default_deps)
+app.include_router(analytics_router, prefix="/api/analytics", tags=["Market Analytics"], dependencies=_default_deps)

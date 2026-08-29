@@ -53,6 +53,12 @@ def list_history() -> List[HistorySummary]:
     return summaries
 
 
+def count_history() -> int:
+    """Total number of recorded executions, from whichever storage
+    backend (PostgreSQL or in-memory) is currently active."""
+    return persistence.count_executions(_MODULE)
+
+
 def clear_history() -> int:
     """Kept for API compatibility. With persistence, clearing is a no-op
     stub that reports 0 - we don't want an API call wiping the real
