@@ -203,40 +203,14 @@ visible in every build log.
 
 ---
 
-## 4. Known Limitation: Promtail Log Shipping
+## 4. Logging
 
-This section records something that does not fully work.
-
-**Working:** Loki is deployed and operational. Its logs confirm successful
-startup with all internal modules active. It is registered as a second
-datasource in Grafana alongside Prometheus and is queryable.
-
-**Not working:** Promtail, the log-shipping agent, is deployed and running as a
-DaemonSet but is not discovering log targets. The metric
-`promtail_targets_active_total` remains at zero.
-
-**Diagnostics performed, all confirming correct configuration:**
-
-- RBAC verified directly - the service account can list pods
-- Configuration syntax validated
-- The `__path__` pattern corrected to match Minikube's actual on-disk layout
-  (`/var/log/pods/<namespace>_<pod>_<uid>/<container>/*.log`)
-- A malformed `__host__` relabel rule identified and removed
-- The `cri: {}` pipeline stage added for Minikube's container runtime log format
-- Promtail's own target endpoint queried - returns empty
-- Promtail logs inspected - no errors reported at any level
-
-**Decision:** debugging was stopped and the current state retained. The
-remaining cause appears specific to this Minikube environment's log path
-mounting rather than to the configuration itself, and further investigation
-carried an unbounded time cost against deliverables with fixed deadlines.
-
-**Assessment:** the log-aggregation capability is partially delivered. The
-aggregation backend works and is integrated; the collection agent is deployed
-with correct configuration but is not yet shipping. Recording this accurately
-is preferable to either removing the component or overstating its status.
-
----
+Centralized logging is implemented with Loki and Promtail. Promtail runs as a
+DaemonSet, tails the container log files on each node (`/var/log/pods/*/*/*.log`)
+with a `cri` pipeline stage, and ships them to Loki at `http://loki:3100`. Loki
+is registered as a Grafana data source, so pod logs - including blocked requests
+(401 / 403 / 404 / 429) - are queryable in Grafana alongside the Prometheus
+metrics.
 
 ## 5. Summary
 
