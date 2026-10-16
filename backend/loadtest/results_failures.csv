@@ -1,0 +1,2 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+GET,/api/dashboard/report [no auth],HTTPError('401 Client Error: Unauthorized for url: /api/dashboard/report [no auth]'),96,2026-08-20T03:31:16Z,2026-08-20T03:31:44Z

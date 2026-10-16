@@ -1,0 +1,104 @@
+# Loki: ConfigMap (config) + Deployment + Service
+# Loki is the log-aggregation backend. Promtail (see 08-promtail.yaml) ships
+# container logs into Loki; Grafana then queries Loki alongside Prometheus,
+# so metrics (Prometheus) and logs (Loki) sit in one dashboard.
+#
+# This is a minimal single-binary Loki suitable for a single-node Minikube
+# demo - filesystem storage, no clustering. A production deployment would use
+# object storage (S3/GCS) and the microservices mode.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki-config
+  labels:
+    app: loki
+data:
+  loki.yaml: |
+    auth_enabled: false
+
+    server:
+      http_listen_port: 3100
+
+    common:
+      instance_addr: 127.0.0.1
+      path_prefix: /tmp/loki
+      storage:
+        filesystem:
+          chunks_directory: /tmp/loki/chunks
+          rules_directory: /tmp/loki/rules
+      replication_factor: 1
+      ring:
+        kvstore:
+          store: inmemory
+
+    schema_config:
+      configs:
+        - from: 2020-10-24
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index:
+            prefix: index_
+            period: 24h
+
+    # Keep it simple for the demo: no rulers/alerting.
+    ruler:
+      alertmanager_url: http://localhost:9093
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loki
+  labels:
+    app: loki
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: loki
+  template:
+    metadata:
+      labels:
+        app: loki
+    spec:
+      containers:
+        - name: loki
+          image: grafana/loki:3.1.1
+          imagePullPolicy: Never   # use image loaded into Minikube
+          ports:
+            - containerPort: 3100
+          args:
+            - "-config.file=/etc/loki/loki.yaml"
+          volumeMounts:
+            - name: config
+              mountPath: /etc/loki
+            - name: storage
+              mountPath: /tmp/loki
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      volumes:
+        - name: config
+          configMap:
+            name: loki-config
+        - name: storage
+          emptyDir: {}   # ephemeral; fine for a demo. PVC in production.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki
+  labels:
+    app: loki
+spec:
+  selector:
+    app: loki
+  ports:
+    - port: 3100
+      targetPort: 3100
+  type: ClusterIP   # internal only; Grafana queries it in-cluster

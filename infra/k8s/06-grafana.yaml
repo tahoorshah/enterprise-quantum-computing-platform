@@ -1,0 +1,171 @@
+# Grafana: ConfigMap (datasource) + Deployment + Service
+# Grafana visualizes the metrics Prometheus collects. The datasource
+# ConfigMap pre-wires Grafana to Prometheus so you don't have to add it
+# manually through the UI every time.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource
+  labels:
+    app: grafana
+data:
+  datasource.yml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        # "prometheus" is the K8s Service name; 9090 is its port.
+        url: http://prometheus:9090
+        isDefault: true
+      - name: Loki
+        type: loki
+        access: proxy
+        # "loki" is the K8s Service name; 3100 is its port.
+        url: http://loki:3100
+        isDefault: false
+---
+# Dashboard provider + the dashboard JSON itself, in ONE ConfigMap mounted
+# as a single directory. (Mounting a second ConfigMap's file into that same
+# directory via subPath conflicts with the directory-mount from this
+# ConfigMap - Kubernetes/runc rejects it as "mount directory onto a file".
+# One ConfigMap, one directory mount avoids that entirely.)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  labels:
+    app: grafana
+data:
+  dashboards.yml: |
+    apiVersion: 1
+    providers:
+      - name: QFT Bank
+        orgId: 1
+        folder: "QFT Bank"
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 30
+        allowUiUpdates: true
+        options:
+          path: /etc/grafana/provisioning/dashboards
+  platform-overview.json: |
+    {
+      "title": "QFT Bank - Platform Overview",
+      "uid": "qft-platform-overview",
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "refresh": "10s",
+      "panels": [
+        {
+          "id": 1,
+          "title": "Request rate (req/s)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total[1m])) by (handler)",
+              "legendFormat": "{{handler}}"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "p95 request latency (s)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, handler))",
+              "legendFormat": "{{handler}}"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "title": "Error rate (4xx+5xx / total)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total{status=~\"4xx|5xx\"}[5m])) / sum(rate(http_requests_total[5m]))",
+              "legendFormat": "error ratio"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "title": "Backend up",
+          "type": "stat",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "targets": [
+            { "expr": "up{job=\"qft-backend\"}", "legendFormat": "backend" }
+          ]
+        }
+      ]
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  labels:
+    app: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:11.2.0
+          imagePullPolicy: Never   # use image loaded into Minikube
+          ports:
+            - containerPort: 3000
+          env:
+            # Default admin login. For a real deployment you'd use a Secret;
+            # fine for a local demo.
+            - name: GF_SECURITY_ADMIN_USER
+              value: "admin"
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: "admin"
+          volumeMounts:
+            - name: datasource
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: dashboards
+              mountPath: /etc/grafana/provisioning/dashboards
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      volumes:
+        - name: datasource
+          configMap:
+            name: grafana-datasource
+        - name: dashboards
+          configMap:
+            name: grafana-dashboards
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  labels:
+    app: grafana
+spec:
+  selector:
+    app: grafana
+  ports:
+    - port: 3000
+      targetPort: 3000
+      nodePort: 30300   # exposed so you can open the Grafana UI in browser
+  type: NodePort

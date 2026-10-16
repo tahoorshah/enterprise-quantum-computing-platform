@@ -1,0 +1,67 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prometheus-policy
+spec:
+  podSelector:
+    matchLabels: { app: prometheus }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - {}
+  egress:
+    - to: [{ podSelector: { matchLabels: { app: backend } } }]
+      ports: [{ port: 8000 }]
+    - to: []
+      ports: [{ port: 53, protocol: UDP }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: grafana-policy
+spec:
+  podSelector:
+    matchLabels: { app: grafana }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - {}
+  egress:
+    - to: [{ podSelector: { matchLabels: { app: prometheus } } }]
+      ports: [{ port: 9090 }]
+    - to: [{ podSelector: { matchLabels: { app: loki } } }]
+      ports: [{ port: 3100 }]
+    - to: []
+      ports: [{ port: 53, protocol: UDP }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: loki-policy
+spec:
+  podSelector:
+    matchLabels: { app: loki }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector: { matchLabels: { app: grafana } }
+        - podSelector: { matchLabels: { app: promtail } }
+      ports: [{ port: 3100 }]
+  egress:
+    - to: []
+      ports: [{ port: 53, protocol: UDP }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: promtail-policy
+spec:
+  podSelector:
+    matchLabels: { app: promtail }
+  policyTypes: [Ingress, Egress]
+  egress:
+    - to: [{ podSelector: { matchLabels: { app: loki } } }]
+      ports: [{ port: 3100 }]
+    - to: []
+      ports: [{ port: 53, protocol: UDP }]
+    - to: []
+      ports: [{ port: 443, protocol: TCP }]

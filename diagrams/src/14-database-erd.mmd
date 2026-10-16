@@ -1,0 +1,28 @@
+%% Database Entity Relationship Diagram - QFT Bank Quantum Platform
+%% Source of truth: backend/app/database/models.py
+erDiagram
+    USERS ||--o{ EXECUTION_RUNS : "runs (1:N)"
+    EXECUTION_RUNS ||--|| EXECUTION_RESULTS : "result (1:1, cascade delete)"
+
+    USERS {
+        int id PK "autoincrement"
+        string username UK "unique, indexed, not null"
+        string hashed_password "bcrypt, not null"
+        string role "not null (e.g. financial_analyst, admin)"
+        datetime created_at "timestamptz, default now()"
+    }
+    EXECUTION_RUNS {
+        int id PK "autoincrement"
+        string execution_id UK "uuid, unique, indexed"
+        int user_id FK "to users.id, nullable, indexed"
+        string module "indexed - quantum_circuits, algorithms, portfolio_optimization, ml_portfolio"
+        string subtype "nullable - e.g. grover, vqe, qaoa"
+        string status "default success"
+        int duration_ms "nullable - audit timing"
+        datetime created_at "timestamptz, indexed, default now()"
+    }
+    EXECUTION_RESULTS {
+        int id PK "autoincrement"
+        int run_id FK "to execution_runs.id, unique, not null"
+        json result_json "full per-execution result payload"
+    }

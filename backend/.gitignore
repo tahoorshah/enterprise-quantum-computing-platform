@@ -1,0 +1,5 @@
+.venv/
+
+# Local SQLite test/dev databases
+*.db
+test.db

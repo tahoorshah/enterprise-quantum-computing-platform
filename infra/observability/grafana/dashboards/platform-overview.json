@@ -1,0 +1,45 @@
+{
+  "title": "QFT Bank - Platform Overview",
+  "uid": "qft-platform-overview",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request rate (req/s)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "sum(rate(http_requests_total[1m])) by (handler)", "legendFormat": "{{handler}}" }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "p95 request latency (s)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, handler))", "legendFormat": "{{handler}}" }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Error rate (4xx+5xx / total)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        { "expr": "sum(rate(http_requests_total{status=~\"4xx|5xx\"}[5m])) / sum(rate(http_requests_total[5m]))", "legendFormat": "error ratio" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Backend up",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        { "expr": "up{job=\"qft-backend\"}", "legendFormat": "backend" }
+      ]
+    }
+  ]
+}

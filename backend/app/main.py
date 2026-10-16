@@ -1,0 +1,115 @@
+"""
+QFT Bank - Enterprise Quantum Computing Platform
+Main FastAPI application entry point.
+
+All module routers (quantum circuits, portfolio optimization, algorithms,
+executive dashboard, PQC readiness, multi-framework demo, governance) are
+included below. The app initialises the database (with graceful
+in-memory fallback), exposes Prometheus metrics, and provides a /health
+endpoint that reports the active storage backend.
+"""
+
+import os
+from fastapi import FastAPI, Depends
+from datetime import datetime, timezone
+from app.auth.security import get_current_user, require_role
+from app.quantum.router import router as quantum_router
+from app.algorithms.router import router as algorithms_router
+from app.optimization.router import router as optimization_router
+from app.dashboard.router import router as dashboard_router
+from app.pqc.router import router as pqc_router
+from app.governance.router import router as governance_router
+from app.database.connection import init_db
+from app.database import persistence
+from app.cache.redis_client import init_redis
+from slowapi.errors import RateLimitExceeded
+from app.rate_limit import limiter, rate_limit_exceeded_handler, enforce_default_rate_limit
+from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
+from app.frameworks.router import router as frameworks_router
+from app.ml.router import router as ml_router
+from app.analytics.router import router as analytics_router
+from app.auth.router import router as auth_router
+app = FastAPI(
+    title="QFT Bank Quantum Computing Platform",
+    description="Enterprise Quantum Computing Platform - EduQual L6 Capstone (ANPP-OP)",
+    version="0.1.0",
+)
+init_db()
+init_redis()
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+
+Instrumentator().instrument(app).expose(app)
+# Allowed frontend origins. Configurable via CORS_ORIGINS so this stays
+# environment-aware (dev / EC2 demo / production) without a wildcard,
+# which would defeat allow_credentials and is bad security practice.
+# Comma-separated list, e.g.:
+#   CORS_ORIGINS=http://localhost:5173,http://203.0.113.10:5173
+_cors_origins_env = os.environ.get("CORS_ORIGINS", "http://localhost:5173")
+_allowed_origins = [o.strip() for o in _cors_origins_env.split(",") if o.strip()]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get("/")
+def root():
+    return {
+        "service": "QFT Quantum Computing Platform",
+        "status": "running",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.get("/health")
+def health_check():
+    """
+    Liveness + degradation check. The app stays up on the in-memory
+    fallback, but that is a degraded state (no cross-restart persistence),
+    so a monitoring system should be able to see it. We report status
+    "degraded" and database=false in that case rather than a misleading
+    "healthy", which lets Prometheus/alerting fire on it.
+    """
+    from app.database import connection
+    from app.cache import redis_client
+
+    db_up = connection.DATABASE_AVAILABLE
+    cache_up = redis_client.REDIS_AVAILABLE
+    return {
+        "status": "healthy" if db_up else "degraded",
+        "database": db_up,
+        "storage_backend": persistence.storage_backend(),
+        "cache": cache_up,
+        "cache_backend": "redis" if cache_up else "none (fallback: compute directly)",
+    }
+
+
+# Every router below (other than auth, which carries its own strict
+# per-endpoint limit) picks up the platform default rate limit via this
+# same dependencies=[...] list that already applies JWT auth - rate
+# limiting runs first so an abusive/excess caller is rejected before
+# paying for an auth DB lookup.
+_default_deps = [Depends(enforce_default_rate_limit), Depends(get_current_user)]
+
+# Admin-only routes: PQC crypto migration and governance are
+# security-sensitive, so they are restricted to the security_admin role.
+# A financial_analyst hitting these endpoints receives 403 Forbidden.
+# This is real server-side RBAC enforcement, not just a hidden UI element.
+_admin_deps = [Depends(enforce_default_rate_limit), Depends(require_role("security_admin"))]
+
+app.include_router(auth_router)
+app.include_router(quantum_router, prefix="/api/quantum", tags=["Quantum Circuits"], dependencies=_default_deps)
+app.include_router(algorithms_router, prefix="/api/algorithms", tags=["Quantum Algorithms"], dependencies=_default_deps)
+app.include_router(optimization_router, prefix="/api/optimization", tags=["Portfolio Optimization"], dependencies=_default_deps)
+app.include_router(dashboard_router, prefix="/api/dashboard", tags=["Executive Dashboard"], dependencies=_default_deps)
+app.include_router(pqc_router, prefix="/api/pqc", tags=["Post-Quantum Cryptography"], dependencies=_admin_deps)
+app.include_router(governance_router, prefix="/api/governance", tags=["Governance"], dependencies=_admin_deps)
+app.include_router(frameworks_router, prefix="/api/frameworks", tags=["Multi-Framework Demo"], dependencies=_default_deps)
+app.include_router(ml_router, prefix="/api/ml", tags=["Machine Learning"], dependencies=_default_deps)
+app.include_router(analytics_router, prefix="/api/analytics", tags=["Market Analytics"], dependencies=_default_deps)

@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+*.egg-info/
+
+# Env / secrets
+.env
+*.env.local
+
+# Docker
+*.log
+
+# Node / React
+node_modules/
+frontend/build/
+frontend/dist/
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Cosign image-signing private key - NEVER commit. It lives only as a Jenkins
+# "Secret file" credential (id: cosign-private-key). Only infra/cosign/cosign.pub
+# belongs in the repo. See infra/cosign/README.md.
+cosign.key
+*.key

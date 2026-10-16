@@ -1,0 +1,75 @@
+%% Enterprise Quantum Computing Architecture - QFT Bank Quantum Platform
+%% Reconstructed from 01-enterprise-quantum-architecture.png.
+%% Terraform (infra/terraform/main.tf) uses the kubernetes provider against the
+%% existing "minikube" context: it deploys workloads INTO the cluster, it does
+%% not create the cluster itself (minikube start in deploy.sh does that).
+flowchart TB
+    subgraph business["Business Layer - QFT Bank"]
+        exec["Executive Leadership<br/>Quantum Innovation<br/>Programme"]
+        sec["Security & Governance<br/>Crypto Readiness"]
+        fin["Financial Analysts<br/>Portfolio & Risk Teams"]
+    end
+
+    subgraph platform["Enterprise Quantum Computing Platform"]
+        subgraph presentation["Presentation Layer"]
+            react["React Web Application<br/>6 Module UIs"]
+        end
+
+        subgraph application["Application Layer - FastAPI"]
+            circuit["Circuit Design"]
+            algos["Algorithm Demos"]
+            pqc["PQC Readiness"]
+            portfolio["Portfolio Optimization"]
+            dashboard["Executive Dashboard"]
+            multi["Multi-Framework"]
+        end
+
+        subgraph simulation["Quantum Simulation Layer"]
+            aer["Qiskit AerSimulator"]
+            penny["PennyLane"]
+            cirq["Cirq"]
+        end
+
+        subgraph data["Data Layer"]
+            pg[("PostgreSQL<br/>Execution History")]
+            redis[("Redis Cache")]
+        end
+    end
+
+    subgraph infra["Infrastructure & Operations"]
+        tf["Terraform IaC"]
+        k8s["Kubernetes Orchestration<br/>(Minikube, pre-existing)"]
+        mon["Prometheus + Grafana"]
+        jenkins["Jenkins DevSecOps"]
+    end
+
+    exec --> react
+    sec --> react
+    fin --> react
+    react --> application
+
+    circuit --> aer
+    algos --> aer
+    portfolio --> aer
+    multi --> penny
+    multi --> cirq
+    application --> pg
+    application --> redis
+
+    platform -. "runs on" .-> k8s
+    tf -. "deploys workloads into<br/>(existing Minikube cluster)" .-> k8s
+    k8s -. "monitored by" .-> mon
+    jenkins -. "deploys" .-> platform
+
+    classDef actor fill:#f3f0ff,stroke:#a78bfa
+    classDef ui fill:#eff8ff,stroke:#38bdf8
+    classDef app fill:#eef2ff,stroke:#818cf8
+    classDef sim fill:#f7fee7,stroke:#a3e635
+    classDef store fill:#f0fdfa,stroke:#2dd4bf
+    classDef ops fill:#fff7ed,stroke:#fb923c
+    class exec,sec,fin actor
+    class react ui
+    class circuit,algos,pqc,portfolio,dashboard,multi app
+    class aer,penny,cirq sim
+    class pg,redis store
+    class tf,k8s,mon,jenkins ops

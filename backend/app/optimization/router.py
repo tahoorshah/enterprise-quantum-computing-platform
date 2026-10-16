@@ -1,0 +1,95 @@
+"""
+Module 2 - Financial Portfolio Optimization Platform: API endpoints.
+
+Endpoints:
+    POST /api/optimization/portfolio       - run classical vs QAOA portfolio optimization
+    GET  /api/optimization/history         - list past optimization runs
+    GET  /api/optimization/history/{id}    - full detail of one past run
+"""
+import uuid
+from datetime import datetime, timezone
+from fastapi import APIRouter, HTTPException
+
+from app.optimization.schemas import PortfolioOptimizationRequest, PortfolioOptimizationResult
+from app.optimization.qaoa_portfolio import run_portfolio_optimization
+from app.optimization import history
+from app.dashboard import metrics
+from app.cache.cache import make_cache_key, get_cached, set_cached
+
+router = APIRouter()
+
+# QAOA portfolio optimization runs several independent simulator trials
+# per request and is the most expensive endpoint in the platform, so a
+# cache hit is worth a lot; an hour is long enough to absorb repeated
+# hits on the same inputs (e.g. a dashboard or demo re-running identical
+# parameters) without serving results that go stale on a live market.
+_PORTFOLIO_CACHE_TTL_SECONDS = 3600
+
+
+@router.post("/portfolio", response_model=PortfolioOptimizationResult)
+def optimize_portfolio(request: PortfolioOptimizationRequest):
+    if request.budget >= request.num_assets:
+        metrics.record_attempt("portfolio_optimization", success=False)
+        raise HTTPException(
+            status_code=422,
+            detail=f"budget ({request.budget}) must be less than num_assets ({request.num_assets})"
+        )
+
+    cache_key = make_cache_key(
+        "portfolio_optimization",
+        num_assets=request.num_assets,
+        budget=request.budget,
+        risk_aversion=request.risk_aversion,
+        penalty_weight=request.penalty_weight,
+        shots=request.shots,
+        max_iterations=request.max_iterations,
+        p_layers=request.p_layers,
+        seed=request.seed,
+        trials=request.trials,
+    )
+    result_data = get_cached(cache_key)
+
+    if result_data is None:
+        try:
+            result_data = run_portfolio_optimization(
+                num_assets=request.num_assets,
+                budget=request.budget,
+                risk_aversion=request.risk_aversion,
+                penalty_weight=request.penalty_weight,
+                shots=request.shots,
+                max_iterations=request.max_iterations,
+                p_layers=request.p_layers,
+                seed=request.seed,
+                trials=request.trials,
+            )
+        except ValueError as e:
+            metrics.record_attempt("portfolio_optimization", success=False)
+            raise HTTPException(status_code=422, detail=str(e))
+        except Exception as e:
+            metrics.record_attempt("portfolio_optimization", success=False)
+            raise HTTPException(status_code=500, detail=f"Portfolio optimization failed: {e}")
+
+        set_cached(cache_key, result_data, _PORTFOLIO_CACHE_TTL_SECONDS)
+
+    metrics.record_attempt("portfolio_optimization", success=True)
+
+    result = PortfolioOptimizationResult(
+        execution_id=str(uuid.uuid4()),
+        timestamp=datetime.now(timezone.utc).isoformat(),
+        result=result_data,
+    )
+    history.save_result(result)
+    return result
+
+
+@router.get("/history")
+def get_history():
+    return history.list_history()
+
+
+@router.get("/history/{execution_id}", response_model=PortfolioOptimizationResult)
+def get_history_detail(execution_id: str):
+    result = history.get_result(execution_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"No execution found with id: {execution_id}")
+    return result

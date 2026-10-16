@@ -1,0 +1,7 @@
+# Terraform provider binaries (large, re-downloaded by terraform init)
+.terraform/
+# State files (can contain sensitive values; machine-specific)
+*.tfstate
+*.tfstate.backup
+# Crash logs
+crash.log
