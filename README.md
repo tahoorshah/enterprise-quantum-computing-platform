@@ -94,8 +94,8 @@ and 1, sequence, ERD, and more) are in [`diagrams/`](diagrams/) as exported PNGs
 **Scientific:** NumPy, SciPy (COBYLA optimizer).
 **Infrastructure:** Docker, Kubernetes (Minikube), Terraform (Kubernetes provider).
 **CI/CD & security:** Jenkins (11-stage DevSecOps pipeline), Bandit (SAST), pip-audit (dependency
-scan), Trivy (container scan).
-**Monitoring:** Prometheus, Grafana (via `prometheus-fastapi-instrumentator`).
+scan), Trivy (container scan), Cosign (image signing + signature-verification gate).
+**Monitoring:** Prometheus, Grafana (via `prometheus-fastapi-instrumentator`), Loki + Promtail (log aggregation).
 **Diagrams:** Mermaid (diagram-as-code, exported to PNG).
 
 Verified working versions on the development machine (Kali Linux, Python 3.13): `qiskit==2.5.0`,
@@ -227,7 +227,7 @@ approved stack.
 The backend is instrumented with `prometheus-fastapi-instrumentator`, exposing a `/metrics`
 endpoint. Prometheus scrapes it (job `qft-backend`); Grafana is pre-wired with the Prometheus
 datasource and graphs request-rate metrics such as `rate(http_requests_total[1m])`. In the
-Kubernetes deployment, Prometheus and Grafana are reachable on NodePorts 30090 and 30300.
+Kubernetes deployment, Prometheus and Grafana are reachable on NodePorts 30090 and 30300. Pod logs are aggregated by Loki: Promtail runs as a DaemonSet that tails each node's container logs and ships them to Loki, which is registered as a Grafana datasource, so metrics and logs are queryable together in Grafana.
 
 ## 11. Testing
 
@@ -298,11 +298,6 @@ CI/CD pipeline, live cross-service integration) - is documented in
   pip-audit (dependency CVEs), Trivy (container image scanning), and an Open Policy Agent / Rego
   policy gate validating every Kubernetes manifest. The backend container runs as a non-root user
   (UID 1000) with privilege escalation disabled and all capabilities dropped.
-- **Known limitation - Promtail log shipping.** Loki is deployed, operational, and registered as a
-  Grafana datasource. Promtail is deployed with verified RBAC and corrected configuration but is
-  not discovering log targets; the cause appears specific to this Minikube environment's log-path
-  mounting. Full diagnostic history is recorded in
-  [`docs/SCOPE_DECISIONS.md`](docs/SCOPE_DECISIONS.md).
 
 ## 14. Standards and Frameworks Considered
 
@@ -316,8 +311,6 @@ and long-term cybersecurity planning is detailed in [`docs/standards.md`](docs/s
 
 - Enforce database readiness in Kubernetes via an init-container or readiness gate, removing
   reliance on the in-memory fallback during startup.
-- Resolve Promtail target discovery to complete the log-aggregation pipeline into the already
-  operational Loki backend.
 - Implement the remaining production-enhancement stack (Keycloak, OpenTelemetry, Wazuh) on
   infrastructure with sufficient resources, and promote the OPA policy set from a CI-time gate to
   an in-cluster Gatekeeper admission controller for runtime enforcement.
