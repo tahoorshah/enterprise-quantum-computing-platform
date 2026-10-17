@@ -1,10 +1,6 @@
 # Promtail: ServiceAccount + RBAC + ConfigMap + DaemonSet
 # Promtail runs on every node (a DaemonSet), tails the container log files
-# under /var/log/pods, and pushes them to Loki. It needs RBAC to read pod
-# metadata so it can label logs by namespace/pod/container.
-#
-# On single-node Minikube this is one Promtail pod shipping all pod logs
-# (backend, frontend, postgres, redis, etc.) into Loki.
+# under /var/log/pods, and pushes them to Loki.
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -59,30 +55,13 @@ data:
 
     scrape_configs:
       - job_name: kubernetes-pods
-        kubernetes_sd_configs:
-          - role: pod
+        static_configs:
+          - targets: [localhost]
+            labels:
+              job: kubernetes-pods
+              __path__: /var/log/pods/*/*/*.log
         pipeline_stages:
           - cri: {}
-        relabel_configs:
-          # friendly labels from pod metadata
-          - source_labels: [__meta_kubernetes_namespace]
-            target_label: namespace
-          - source_labels: [__meta_kubernetes_pod_name]
-            target_label: pod
-          - source_labels: [__meta_kubernetes_pod_container_name]
-            target_label: container
-          - source_labels: [__meta_kubernetes_pod_label_app]
-            target_label: app
-          # on-disk path: /var/log/pods/<ns>_<pod>_<uid>/<container>/*.log
-          # $1 = namespace, $2 = pod name, $3 = container; trailing * absorbs the uid
-          - source_labels:
-              - __meta_kubernetes_namespace
-              - __meta_kubernetes_pod_name
-              - __meta_kubernetes_pod_container_name
-            target_label: __path__
-            separator: /
-            regex: (.+)/(.+)/(.+)
-            replacement: /var/log/pods/$1_$2_*/$3/*.log
 ---
 apiVersion: apps/v1
 kind: DaemonSet

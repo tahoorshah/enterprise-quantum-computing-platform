@@ -1,7 +1,4 @@
 # Grafana: ConfigMap (datasource) + Deployment + Service
-# Grafana visualizes the metrics Prometheus collects. The datasource
-# ConfigMap pre-wires Grafana to Prometheus so you don't have to add it
-# manually through the UI every time.
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -16,21 +13,15 @@ data:
       - name: Prometheus
         type: prometheus
         access: proxy
-        # "prometheus" is the K8s Service name; 9090 is its port.
         url: http://prometheus:9090
         isDefault: true
       - name: Loki
         type: loki
         access: proxy
-        # "loki" is the K8s Service name; 3100 is its port.
+        uid: loki
         url: http://loki:3100
         isDefault: false
 ---
-# Dashboard provider + the dashboard JSON itself, in ONE ConfigMap mounted
-# as a single directory. (Mounting a second ConfigMap's file into that same
-# directory via subPath conflicts with the directory-mount from this
-# ConfigMap - Kubernetes/runc rejects it as "mount directory onto a file".
-# One ConfigMap, one directory mount avoids that entirely.)
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -64,10 +55,7 @@ data:
           "type": "timeseries",
           "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
           "targets": [
-            {
-              "expr": "sum(rate(http_requests_total[1m])) by (handler)",
-              "legendFormat": "{{handler}}"
-            }
+            { "expr": "sum(rate(http_requests_total[1m])) by (handler)", "legendFormat": "{{handler}}" }
           ]
         },
         {
@@ -76,10 +64,7 @@ data:
           "type": "timeseries",
           "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
           "targets": [
-            {
-              "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, handler))",
-              "legendFormat": "{{handler}}"
-            }
+            { "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, handler))", "legendFormat": "{{handler}}" }
           ]
         },
         {
@@ -88,10 +73,7 @@ data:
           "type": "timeseries",
           "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
           "targets": [
-            {
-              "expr": "sum(rate(http_requests_total{status=~\"4xx|5xx\"}[5m])) / sum(rate(http_requests_total[5m]))",
-              "legendFormat": "error ratio"
-            }
+            { "expr": "sum(rate(http_requests_total{status=~\"4xx|5xx\"}[5m])) / sum(rate(http_requests_total[5m]))", "legendFormat": "error ratio" }
           ]
         },
         {
@@ -102,6 +84,21 @@ data:
           "targets": [
             { "expr": "up{job=\"qft-backend\"}", "legendFormat": "backend" }
           ]
+        },
+        {
+          "id": 5,
+          "title": "Security - blocked requests (live)",
+          "type": "logs",
+          "gridPos": { "h": 10, "w": 24, "x": 0, "y": 16 },
+          "datasource": { "type": "loki", "uid": "loki" },
+          "targets": [
+            {
+              "datasource": { "type": "loki", "uid": "loki" },
+              "expr": "{filename=~\".+backend.+\"} |~ \"Unauthorized|Forbidden|Not Found|Too Many Requests|Internal Server Error\"",
+              "queryType": "range"
+            }
+          ],
+          "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending" }
         }
       ]
     }
@@ -125,12 +122,10 @@ spec:
       containers:
         - name: grafana
           image: grafana/grafana:11.2.0
-          imagePullPolicy: Never   # use image loaded into Minikube
+          imagePullPolicy: Never
           ports:
             - containerPort: 3000
           env:
-            # Default admin login. For a real deployment you'd use a Secret;
-            # fine for a local demo.
             - name: GF_SECURITY_ADMIN_USER
               value: "admin"
             - name: GF_SECURITY_ADMIN_PASSWORD
@@ -167,5 +162,5 @@ spec:
   ports:
     - port: 3000
       targetPort: 3000
-      nodePort: 30300   # exposed so you can open the Grafana UI in browser
+      nodePort: 30300
   type: NodePort
